@@ -1,0 +1,62 @@
+
+# CMake out-of-source build directories
+build/
+**/build/
+out/
+**/out/
+cmake-build-*/
+**/cmake-build-*/
+
+# CMake generated files (for accidental in-source builds)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+Testing/
+Makefile
+compile_commands.json
+
+# Visual Studio generated files
+.vs/
+*.sln
+*.slnx
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.VC.db
+*.VC.opendb
+*.suo
+*.user
+
+# Compiler and linker outputs
+*.obj
+*.o
+*.pch
+*.pdb
+*.ipdb
+*.iobj
+*.ilk
+*.idb
+*.exp
+*.exe
+*.dll
+*.lib
+
+# Preserve the prebuilt Hazel SDK consumed by the independent Sandbox project
+!Sandbox/third_party/Hazel/bin/
+!Sandbox/third_party/Hazel/bin/*.dll
+!Sandbox/third_party/Hazel/lib/
+!Sandbox/third_party/Hazel/lib/*.lib
+
+# IDE and editor-local files
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*~
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
