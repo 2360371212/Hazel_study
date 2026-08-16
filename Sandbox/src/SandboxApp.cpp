@@ -9,11 +9,12 @@ class Sandbox : public Hazel::Application {
         ~Sandbox() {
 
         }
+
+        void Run() {
+            while (true);
+        }
 };
 
-void main(){
-    Sandbox* sandbox = new Sandbox();
-    sandbox->Run(); 
-    delete sandbox;
-
+Hazel::Application* Hazel::CreateApplication() {
+    return new Sandbox();
 }
