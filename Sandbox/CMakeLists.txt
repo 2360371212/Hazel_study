@@ -20,8 +20,14 @@ target_include_directories(
     Sandbox PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../Hazel/src
 )
 
+target_include_directories(
+    Sandbox PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../Hazel/vendor/spdlog/include
+)
+
 target_link_libraries(Sandbox PRIVATE ${HAZEL_LIB})
 
 target_compile_definitions(
     Sandbox PRIVATE HZ_PLATFORM_WINDOWS
 )
+
+target_compile_options(Sandbox PRIVATE /utf-8)

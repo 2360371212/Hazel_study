@@ -12,7 +12,7 @@ namespace Hazel {
     void Application::Run() {
         while (true) {
             // Run the application
-            std::cout << "Running application..." << std::endl;
+            // std::cout << "Running application..." << std::endl;
         }
     }
 }
