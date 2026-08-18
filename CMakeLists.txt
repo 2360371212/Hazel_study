@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(HazelWorkspace LANGUAGES CXX)
+project(HazelWorkspace LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,7 +20,16 @@ set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_BENCH OFF CACHE BOOL "" FORCE)
 set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
 
+# Build GLFW only as Hazel's static dependency.
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+set(GLFW_LIBRARY_TYPE STATIC CACHE STRING "" FORCE)
+
+
 add_subdirectory(Hazel/vendor/spdlog EXCLUDE_FROM_ALL)
+add_subdirectory(Hazel/vendor/GLFW EXCLUDE_FROM_ALL)
 add_subdirectory(Hazel)
 add_subdirectory(Sandbox)
 
