@@ -1,6 +1,8 @@
 add_library(Hazel SHARED
     src/Hazel/Application.cpp
     src/Hazel/Log.cpp
+    src/Hazel/Layer.cpp
+    src/Hazel/LayerStack.cpp
 )
 
 if(WIN32)
