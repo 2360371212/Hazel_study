@@ -30,6 +30,7 @@ set(GLFW_LIBRARY_TYPE STATIC CACHE STRING "" FORCE)
 
 add_subdirectory(Hazel/vendor/spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(Hazel/vendor/GLFW EXCLUDE_FROM_ALL)
+add_subdirectory(Hazel/vendor/GLAD EXCLUDE_FROM_ALL)
 add_subdirectory(Hazel)
 add_subdirectory(Sandbox)
 

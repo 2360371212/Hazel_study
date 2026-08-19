@@ -26,6 +26,7 @@ target_compile_definitions(Hazel
     PRIVATE
         HZ_BUILD_DLL
         HZ_ENABLE_ASSERTS
+        GLFW_INCLUDE_NONE
 )
 
 find_package(OpenGL REQUIRED)
@@ -34,6 +35,7 @@ target_link_libraries(Hazel
     PUBLIC
         spdlog::spdlog_header_only
     PRIVATE
+        glad::glad
         glfw
         OpenGL::GL
 )
