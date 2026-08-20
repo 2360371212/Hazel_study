@@ -76,10 +76,12 @@ namespace Hazel {
             case GLFW_RELEASE:{
                 KeyReleasedEvent event(key);
                 data.EventCallback(event);
+                break;
             }
             case GLFW_REPEAT:{
                 KeyPressedEvent event(key, 1);
                 data.EventCallback(event);
+                break;
             }
             default:
                 break;
