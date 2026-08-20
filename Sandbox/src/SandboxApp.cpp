@@ -6,13 +6,20 @@ class ExampleLayer : public Hazel::Layer{
             : Layer("Example"){}
         
         void OnUpdate() override{
-            HZ_INFO("ExapmleLayer::Update");
+            if (Hazel::Input::IsKeyPressed(HZ_KEY_TAB))
+            {
+                HZ_TRACE("Tab key is pressed");
+            }
         }
 
         void OnEvent(Hazel::Event& event) override {
-            HZ_TRACE("{0}", event.ToString());
+            if (event.GetEventType() == Hazel::EventType::KeyPressed)
+            {
+                Hazel::KeyPressedEvent& e = dynamic_cast<Hazel::KeyPressedEvent&>(event);
+                int code = e.GetKeyCode();
+                HZ_TRACE("{0}", (char)code);
+            }
         }
-
 };
 
 
@@ -26,10 +33,6 @@ class Sandbox : public Hazel::Application {
 
         ~Sandbox() {
 
-        }
-
-        void Run() {
-            while (true);
         }
 };
 
