@@ -31,6 +31,38 @@ set(GLFW_LIBRARY_TYPE STATIC CACHE STRING "" FORCE)
 add_subdirectory(Hazel/vendor/spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(Hazel/vendor/GLFW EXCLUDE_FROM_ALL)
 add_subdirectory(Hazel/vendor/GLAD EXCLUDE_FROM_ALL)
+
+# Dear ImGui does not provide a project CMake target. Keep its cloned source
+# tree untouched and describe the files used by Hazel here instead.
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Hazel/vendor/imgui")
+
+add_library(imgui STATIC
+    "${IMGUI_DIR}/imgui.cpp"
+    "${IMGUI_DIR}/imgui_demo.cpp"
+    "${IMGUI_DIR}/imgui_draw.cpp"
+    "${IMGUI_DIR}/imgui_tables.cpp"
+    "${IMGUI_DIR}/imgui_widgets.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+)
+
+add_library(imgui::imgui ALIAS imgui)
+
+target_include_directories(imgui
+    SYSTEM PUBLIC
+        "${IMGUI_DIR}"
+        "${IMGUI_DIR}/backends"
+)
+
+target_compile_definitions(imgui
+    PRIVATE
+        GLFW_INCLUDE_NONE
+)
+
+target_link_libraries(imgui
+    PRIVATE
+        glfw
+)
+
 add_subdirectory(Hazel)
 add_subdirectory(Sandbox)
 

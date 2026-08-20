@@ -3,6 +3,8 @@ add_library(Hazel SHARED
     src/Hazel/Log.cpp
     src/Hazel/Layer.cpp
     src/Hazel/LayerStack.cpp
+    src/Platform/OpenGL/ImGuiOpenGLRenderer.cpp
+    src/Hazel/ImGui/ImGuiLayer.cpp
 )
 
 if(WIN32)
@@ -37,6 +39,7 @@ target_link_libraries(Hazel
     PRIVATE
         glad::glad
         glfw
+        imgui::imgui
         OpenGL::GL
 )
 
