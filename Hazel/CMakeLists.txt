@@ -5,6 +5,7 @@ add_library(Hazel SHARED
     src/Hazel/LayerStack.cpp
     src/Platform/OpenGL/ImGuiOpenGLRenderer.cpp
     src/Hazel/ImGui/ImGuiLayer.cpp
+    src/Platform/Windows/WindowsInput.cpp
 )
 
 if(WIN32)
