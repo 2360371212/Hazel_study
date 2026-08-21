@@ -1,7 +1,9 @@
 #pragma once
 
 #ifdef HZ_PLATFORM_WINDOWS
-    #ifdef HZ_BUILD_DLL
+    #ifdef HZ_STATIC
+        #define HAZEL_API
+    #elif defined(HZ_BUILD_DLL)
         #define HAZEL_API __declspec(dllexport)
     #else
         #define HAZEL_API __declspec(dllimport)
