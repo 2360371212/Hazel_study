@@ -1,11 +1,9 @@
+file(GLOB_RECURSE Source 
+    src/*.cpp 
+)
+
 add_library(Hazel SHARED
-    src/Hazel/Application.cpp
-    src/Hazel/Log.cpp
-    src/Hazel/Layer.cpp
-    src/Hazel/LayerStack.cpp
-    src/Platform/OpenGL/ImGuiOpenGLRenderer.cpp
-    src/Hazel/ImGui/ImGuiLayer.cpp
-    src/Platform/Windows/WindowsInput.cpp
+    ${Source}
 )
 
 if(WIN32)
@@ -21,6 +19,7 @@ endif()
 target_include_directories(Hazel
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm"
 )
 
 target_compile_definitions(Hazel

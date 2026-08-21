@@ -1,9 +1,13 @@
 #include "Hazel.h"
 
+
+
+
 class ExampleLayer : public Hazel::Layer{
     public:
         ExampleLayer()
-            : Layer("Example"){}
+            : Layer("Example"){
+        }
         
         void OnUpdate() override{
             if (Hazel::Input::IsKeyPressed(HZ_KEY_TAB))
@@ -28,7 +32,6 @@ class Sandbox : public Hazel::Application {
     public:
         Sandbox() {
             PushLayer(new ExampleLayer());
-            PushOverlay(new Hazel::ImGuiLayer());
         }
 
         ~Sandbox() {
