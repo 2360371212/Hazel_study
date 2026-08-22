@@ -4,6 +4,7 @@ set(HAZEL_SOURCES
     src/Hazel/Layer.cpp
     src/Hazel/LayerStack.cpp
     src/Hazel/Log.cpp
+    src/Platform/OpenGL/OpenGLContext.cpp
 )
 
 # ImGuiBuild.cpp is intentionally excluded. ImGui's GLFW and OpenGL3 backend
