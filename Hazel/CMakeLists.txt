@@ -6,11 +6,14 @@ set(HAZEL_SOURCES
     src/Hazel/Log.cpp
     src/Hazel/Renderer/Shader.cpp
     src/Platform/OpenGL/OpenGLContext.cpp
-    src/Hazel/Renderer/Renderer.cpp
     src/Hazel/Renderer/Buffer.cpp
     src/Platform/OpenGL/OpenGLBuffer.cpp
     src/Hazel/Renderer/VertexArray.cpp
     src/Platform/OpenGL/OpenGLVertexArray.cpp
+    src/Hazel/Renderer/Renderer.cpp
+    src/Hazel/Renderer/RendererAPI.cpp
+    src/Hazel/Renderer/RenderCommand.cpp
+    src/Platform/OpenGL/OpenGLRendererAPI.cpp
 )
 
 # ImGuiBuild.cpp is intentionally excluded. ImGui's GLFW and OpenGL3 backend
