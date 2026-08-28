@@ -73,11 +73,11 @@ class ExampleLayer : public Hazel::Layer{
 
             squareVertexArray.reset(Hazel::VertexArray::Create());
 
-            float squareVertices[4 * 3] = {
-                -0.5f, -0.5f, 0.0f,
-                0.5f, -0.5f, 0.0f,
-                0.5f, 0.5f, 0.0f,
-                -0.5f, 0.5f, 0.0f
+            float squareVertices[4 * 5] = {
+                -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+                0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+                0.5f, 0.5f, 0.0f, 1.0f, 1.0f,
+                -0.5f, 0.5f, 0.0f, 0.0f, 1.0f
             };
 
             
@@ -85,6 +85,7 @@ class ExampleLayer : public Hazel::Layer{
             squareVertexBuffer.reset(Hazel::VertexBuffer::Create(squareVertices, sizeof(squareVertices)));
             Hazel::BufferLayout squareLayout= {
                 {Hazel::ShaderDataType::Float3, "a_Position"},
+                {Hazel::ShaderDataType::Float2, "a_TexCoord"}
             };
             squareVertexBuffer->SetLayout(squareLayout);
             
@@ -127,8 +128,42 @@ class ExampleLayer : public Hazel::Layer{
                     color = vec4(u_Color, 1);
                 }
             )";
-
             squareShader.reset(Hazel::Shader::Create(vertexSrc2, flatColorShaderFragmentSrc));
+
+            std::string textureShaderVertexSrc= R"(
+                #version 330 core      
+
+                layout(location = 0) in vec3 a_Position;
+                layout(location = 1) in vec2 a_TexCoord;
+
+                uniform mat4 u_ViewProjection;
+                uniform mat4 u_Transform;
+
+                out vec2 v_TexCoord;
+
+                void main()
+                {
+                    v_TexCoord = a_TexCoord;
+                    gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
+                }
+            )";
+
+            std::string textureShaderFragmentSrc= R"(
+                #version 330 core      
+
+                layout(location = 0) out vec4 color;
+
+                in vec2 v_TexCoord;
+
+                uniform vec3 u_Color;
+
+                void main()
+                {
+                    color = vec4(v_TexCoord, 0.0 , 1);
+                }
+            )";
+            m_TextureShader.reset(Hazel::Shader::Create(textureShaderVertexSrc, textureShaderFragmentSrc));
+
         }
         
         void OnUpdate(Hazel::Timestep deltaTime) override{
@@ -153,16 +188,16 @@ class ExampleLayer : public Hazel::Layer{
                 m_CameraRotation += m_CameraRotationSpeed * deltaTime;
             }
 
-            if (Hazel::Input::IsKeyPressed(HZ_KEY_J)){
-                m_SquarePosition.x -= m_SquareMoveSpeed * deltaTime;
-            } else if (Hazel::Input::IsKeyPressed(HZ_KEY_L)){
-                m_SquarePosition.x += m_SquareMoveSpeed * deltaTime;
-            }
-            if (Hazel::Input::IsKeyPressed(HZ_KEY_I)){
-                m_SquarePosition.y += m_SquareMoveSpeed * deltaTime;
-            } else if (Hazel::Input::IsKeyPressed(HZ_KEY_K)){
-                m_SquarePosition.y -= m_SquareMoveSpeed * deltaTime;
-            }
+            // if (Hazel::Input::IsKeyPressed(HZ_KEY_J)){
+            //     m_SquarePosition.x -= m_SquareMoveSpeed * deltaTime;
+            // } else if (Hazel::Input::IsKeyPressed(HZ_KEY_L)){
+            //     m_SquarePosition.x += m_SquareMoveSpeed * deltaTime;
+            // }
+            // if (Hazel::Input::IsKeyPressed(HZ_KEY_I)){
+            //     m_SquarePosition.y += m_SquareMoveSpeed * deltaTime;
+            // } else if (Hazel::Input::IsKeyPressed(HZ_KEY_K)){
+            //     m_SquarePosition.y -= m_SquareMoveSpeed * deltaTime;
+            // }
 
 
             Hazel::RenderCommand::SetClearColor({0.1f, 0.1f, 0.1f, 1});
@@ -186,7 +221,9 @@ class ExampleLayer : public Hazel::Layer{
                 }
             }
 
-            Hazel::Renderer::Submit(trangleShader, vertexArray);
+            Hazel::Renderer::Submit(m_TextureShader, squareVertexArray, glm::scale(glm::mat4(1.0f), glm::vec3(1.5f)));
+
+            // Hazel::Renderer::Submit(trangleShader, vertexArray);
             Hazel::Renderer::EndScene();
         }
 
@@ -203,7 +240,7 @@ class ExampleLayer : public Hazel::Layer{
 
     private:
         Hazel::Ref<Hazel::Shader> trangleShader;
-        Hazel::Ref<Hazel::Shader> squareShader;
+        Hazel::Ref<Hazel::Shader> squareShader, m_TextureShader;
         Hazel::Ref<Hazel::VertexArray> vertexArray;
         Hazel::Ref<Hazel::VertexArray> squareVertexArray;
 
