@@ -185,9 +185,8 @@ class ExampleLayer : public Hazel::Layer{
                     Hazel::Renderer::Submit(squareShader, squareVertexArray, transform);
                 }
             }
-            
-            Hazel::Renderer::Submit(trangleShader, vertexArray);
 
+            Hazel::Renderer::Submit(trangleShader, vertexArray);
             Hazel::Renderer::EndScene();
         }
 
@@ -203,10 +202,10 @@ class ExampleLayer : public Hazel::Layer{
         }
 
     private:
-        std::shared_ptr<Hazel::Shader> trangleShader;
-        std::shared_ptr<Hazel::Shader> squareShader;
-        std::shared_ptr<Hazel::VertexArray> vertexArray;
-        std::shared_ptr<Hazel::VertexArray> squareVertexArray;
+        Hazel::Ref<Hazel::Shader> trangleShader;
+        Hazel::Ref<Hazel::Shader> squareShader;
+        Hazel::Ref<Hazel::VertexArray> vertexArray;
+        Hazel::Ref<Hazel::VertexArray> squareVertexArray;
 
         Hazel::OrthographicCamera m_Camera;
         glm::vec3 m_CameraPosition;
@@ -227,7 +226,6 @@ class Sandbox : public Hazel::Application {
     public:
         Sandbox() {
             PushLayer(new ExampleLayer());
-            
         }
 
         ~Sandbox() {
