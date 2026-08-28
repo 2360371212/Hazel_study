@@ -6,7 +6,7 @@
 class ExampleLayer : public Hazel::Layer{
     public:
         ExampleLayer()
-            : Layer("Example"){
+            : Layer("Example"), m_Camera(-1.6f, 1.6f, -0.9f, 0.9f ), m_CameraPosition({0.0f, 0.0f, 0.0f}){
             
             vertexArray.reset(Hazel::VertexArray::Create());
 
@@ -37,6 +37,8 @@ class ExampleLayer : public Hazel::Layer{
                 layout(location = 0) in vec3 a_Position;
                 layout(location = 1) in vec4 a_Color;
 
+                uniform mat4 u_ViewProjection;
+
                 out vec3 v_Position;
                 out vec4 v_Color;
 
@@ -44,7 +46,7 @@ class ExampleLayer : public Hazel::Layer{
                 {
                     v_Position = a_Position;
                     v_Color = a_Color;
-                    gl_Position = vec4(a_Position, 1.0);
+                    gl_Position = u_ViewProjection * vec4(a_Position, 1.0);
                 }
             )";
 
@@ -69,10 +71,10 @@ class ExampleLayer : public Hazel::Layer{
             squareVertexArray.reset(Hazel::VertexArray::Create());
 
             float squareVertices[4 * 3] = {
-                -0.5f, -0.5f, 0.0f,
-                0.5f, -0.5f, 0.0f,
-                0.5f, 0.5f, 0.0f,
-                -0.5f, 0.5f, 0.0f
+                -0.75f, -0.75f, 0.0f,
+                0.75f, -0.75f, 0.0f,
+                0.75f, 0.75f, 0.0f,
+                -0.75f, 0.75f, 0.0f
             };
 
             
@@ -96,12 +98,14 @@ class ExampleLayer : public Hazel::Layer{
 
                 layout(location = 0) in vec3 a_Position;
 
+                uniform mat4 u_ViewProjection;
+
                 out vec3 v_Position;
 
                 void main()
                 {
                     v_Position = a_Position;
-                    gl_Position = vec4(a_Position, 1.0);
+                    gl_Position = u_ViewProjection * vec4(a_Position, 1.0);
                 }
             )";
 
@@ -122,16 +126,37 @@ class ExampleLayer : public Hazel::Layer{
         }
         
         void OnUpdate() override{
+
+            if (Hazel::Input::IsKeyPressed(HZ_KEY_LEFT)){
+                m_CameraPosition.x -= m_CameraMoveSpeed;
+            } else if (Hazel::Input::IsKeyPressed(HZ_KEY_RIGHT)){
+                m_CameraPosition.x += m_CameraMoveSpeed;
+            }
+            if (Hazel::Input::IsKeyPressed(HZ_KEY_UP)){
+                m_CameraPosition.y += m_CameraMoveSpeed;
+            } else if (Hazel::Input::IsKeyPressed(HZ_KEY_DOWN)){
+                m_CameraPosition.y -= m_CameraMoveSpeed;
+            }
+
+            if (Hazel::Input::IsKeyPressed(HZ_KEY_A)){
+                m_CameraRotation -= m_CameraRotationSpeed;
+            }
+
+            if (Hazel::Input::IsKeyPressed(HZ_KEY_D)){
+                m_CameraRotation += m_CameraRotationSpeed;
+            }
+
             Hazel::RenderCommand::SetClearColor({0.1f, 0.1f, 0.1f, 1});
             Hazel::RenderCommand::Clear();
+            m_Camera.SetPosition(m_CameraPosition);
+            m_Camera.SetRotation(m_CameraRotation);
 
-            Hazel::Renderer::BeginScene();
+            Hazel::Renderer::BeginScene(m_Camera);
 
-            squareShader->Bind();
-            Hazel::Renderer::Submit(squareVertexArray);
+            // m_Camera.SetPosition({0.5f,0.5f, 0.5f});
 
-            trangleShader->Bind();
-            Hazel::Renderer::Submit(vertexArray);
+            Hazel::Renderer::Submit(squareShader, squareVertexArray);
+            Hazel::Renderer::Submit(trangleShader, vertexArray);
 
             Hazel::Renderer::EndScene();
         }
@@ -142,32 +167,29 @@ class ExampleLayer : public Hazel::Layer{
         }
 
         void OnEvent(Hazel::Event& event) override {
-            if (event.GetEventType() == Hazel::EventType::KeyPressed)
-            {
-                Hazel::KeyPressedEvent& e = dynamic_cast<Hazel::KeyPressedEvent&>(event);
-                int code = e.GetKeyCode();
-                HZ_TRACE("{0}", (char)code);
-            }
+
+            
         }
+
     private:
-        std::unique_ptr<Hazel::Shader> trangleShader;
-        std::unique_ptr<Hazel::Shader> squareShader;
+        std::shared_ptr<Hazel::Shader> trangleShader;
+        std::shared_ptr<Hazel::Shader> squareShader;
         std::shared_ptr<Hazel::VertexArray> vertexArray;
         std::shared_ptr<Hazel::VertexArray> squareVertexArray;
 
+        Hazel::OrthographicCamera m_Camera;
+        glm::vec3 m_CameraPosition;
+        float m_CameraMoveSpeed = 0.1f;
 
-
+        float m_CameraRotation= 0.0f;
+        float m_CameraRotationSpeed= 0.1f;
 };
-
 
 
 class Sandbox : public Hazel::Application {
     public:
         Sandbox() {
-
             PushLayer(new ExampleLayer());
-
-
         }
 
         ~Sandbox() {

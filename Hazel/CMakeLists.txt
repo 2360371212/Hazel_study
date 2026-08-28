@@ -14,6 +14,7 @@ set(HAZEL_SOURCES
     src/Hazel/Renderer/RendererAPI.cpp
     src/Hazel/Renderer/RenderCommand.cpp
     src/Platform/OpenGL/OpenGLRendererAPI.cpp
+    src/Hazel/Renderer/OrthographicCamera.cpp
 )
 
 # ImGuiBuild.cpp is intentionally excluded. ImGui's GLFW and OpenGL3 backend
