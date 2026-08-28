@@ -23,6 +23,7 @@
 #include "Hazel/Renderer/RendererAPI.h"
 #include "Hazel/Renderer/OrthographicCamera.h"
 
+#include "Hazel/Core/Timestep.h"
 
 // OpenGL
 // #include "Platform/OpenGL/OpenGLBuffer.h"

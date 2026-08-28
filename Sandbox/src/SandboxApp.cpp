@@ -125,25 +125,26 @@ class ExampleLayer : public Hazel::Layer{
             squareShader.reset(new Hazel::Shader(vertexSrc2,fragmentSrc2));
         }
         
-        void OnUpdate() override{
+        void OnUpdate(Hazel::Timestep deltaTime) override{
+
 
             if (Hazel::Input::IsKeyPressed(HZ_KEY_LEFT)){
-                m_CameraPosition.x -= m_CameraMoveSpeed;
+                m_CameraPosition.x -= m_CameraMoveSpeed * deltaTime;
             } else if (Hazel::Input::IsKeyPressed(HZ_KEY_RIGHT)){
-                m_CameraPosition.x += m_CameraMoveSpeed;
+                m_CameraPosition.x += m_CameraMoveSpeed * deltaTime;
             }
             if (Hazel::Input::IsKeyPressed(HZ_KEY_UP)){
-                m_CameraPosition.y += m_CameraMoveSpeed;
+                m_CameraPosition.y += m_CameraMoveSpeed * deltaTime;
             } else if (Hazel::Input::IsKeyPressed(HZ_KEY_DOWN)){
-                m_CameraPosition.y -= m_CameraMoveSpeed;
+                m_CameraPosition.y -= m_CameraMoveSpeed * deltaTime;
             }
 
             if (Hazel::Input::IsKeyPressed(HZ_KEY_A)){
-                m_CameraRotation -= m_CameraRotationSpeed;
+                m_CameraRotation -= m_CameraRotationSpeed * deltaTime;
             }
 
             if (Hazel::Input::IsKeyPressed(HZ_KEY_D)){
-                m_CameraRotation += m_CameraRotationSpeed;
+                m_CameraRotation += m_CameraRotationSpeed * deltaTime;
             }
 
             Hazel::RenderCommand::SetClearColor({0.1f, 0.1f, 0.1f, 1});
@@ -179,10 +180,10 @@ class ExampleLayer : public Hazel::Layer{
 
         Hazel::OrthographicCamera m_Camera;
         glm::vec3 m_CameraPosition;
-        float m_CameraMoveSpeed = 0.1f;
+        float m_CameraMoveSpeed = 1.f;
 
         float m_CameraRotation= 0.0f;
-        float m_CameraRotationSpeed= 0.1f;
+        float m_CameraRotationSpeed= 30.f;
 };
 
 

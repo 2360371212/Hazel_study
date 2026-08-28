@@ -6,6 +6,7 @@
 #include "Hazel/Events/Event.h"
 #include "Hazel/Events/ApplicationEvent.h"
 #include "Hazel/ImGui/ImGuiLayer.h"
+#include "Hazel/Core/Timestep.h"
 
 
 namespace Hazel {
@@ -34,6 +35,7 @@ namespace Hazel {
 
             static Application* s_Instance;
 
+            float m_LastFrameTime = 0.0f;
 
         protected:
             bool m_Running = true;

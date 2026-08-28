@@ -4,7 +4,7 @@
 #include "Input.h"
 #include "Hazel/Renderer/Renderer.h"
 #include "glm/glm.hpp"
-
+#include "GLFW/glfw3.h"
 
 namespace Hazel
 {
@@ -46,9 +46,12 @@ namespace Hazel
     {
         while (m_Running)
         {
+            float time = (float)glfwGetTime(); // Platform Time
+            Timestep timestep = time - m_LastFrameTime;
+            m_LastFrameTime = time;            
 
             for(Layer* layer : m_LayerStack){
-                layer->OnUpdate();
+                layer->OnUpdate(timestep);
             }
             m_ImGuiLayer->Begin();
             for (Layer* layer : m_LayerStack)
