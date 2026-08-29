@@ -26,7 +26,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 # -----------------------------------------------------------------------------
 
 # spdlog and GLM are header-only dependencies. Hazel declares their include
-# directories directly, so they do not create separate CMake subprojects.
+# directories directly. stb_image is compiled as one implementation unit by
+# the Hazel target; none of these dependencies needs a separate subproject.
 
 # GLFW: a static platform/windowing dependency.
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)

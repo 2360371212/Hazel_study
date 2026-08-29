@@ -155,15 +155,20 @@ class ExampleLayer : public Hazel::Layer{
 
                 in vec2 v_TexCoord;
 
-                uniform vec3 u_Color;
+                uniform sampler2D u_Texture;
 
                 void main()
                 {
-                    color = vec4(v_TexCoord, 0.0 , 1);
+                    color = texture(u_Texture, v_TexCoord);
                 }
             )";
             m_TextureShader.reset(Hazel::Shader::Create(textureShaderVertexSrc, textureShaderFragmentSrc));
 
+            m_Texture = Hazel::Texture2D::Create("D:/Project/cpp/Hazel/Sandbox/assets/texture/test.jpg");
+
+            std::dynamic_pointer_cast<Hazel::OpenGLShader>(m_TextureShader)->Bind();
+            // select the texture slot
+            std::dynamic_pointer_cast<Hazel::OpenGLShader>(m_TextureShader)->UploadUniformInt("u_Texture", 0);
         }
         
         void OnUpdate(Hazel::Timestep deltaTime) override{
@@ -221,6 +226,7 @@ class ExampleLayer : public Hazel::Layer{
                 }
             }
 
+            m_Texture->Bind();
             Hazel::Renderer::Submit(m_TextureShader, squareVertexArray, glm::scale(glm::mat4(1.0f), glm::vec3(1.5f)));
 
             // Hazel::Renderer::Submit(trangleShader, vertexArray);
@@ -243,6 +249,8 @@ class ExampleLayer : public Hazel::Layer{
         Hazel::Ref<Hazel::Shader> squareShader, m_TextureShader;
         Hazel::Ref<Hazel::VertexArray> vertexArray;
         Hazel::Ref<Hazel::VertexArray> squareVertexArray;
+
+        Hazel::Ref<Hazel::Texture2D> m_Texture;
 
         Hazel::OrthographicCamera m_Camera;
         glm::vec3 m_CameraPosition;

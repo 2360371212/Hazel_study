@@ -1,29 +1,22 @@
-set(HAZEL_SOURCES
-    src/Hazel/Application.cpp
-    src/Hazel/ImGui/ImGuiLayer.cpp
-    src/Hazel/Layer.cpp
-    src/Hazel/LayerStack.cpp
-    src/Hazel/Log.cpp
-    src/Hazel/Renderer/Shader.cpp
-    src/Platform/OpenGL/OpenGLContext.cpp
-    src/Hazel/Renderer/Buffer.cpp
-    src/Platform/OpenGL/OpenGLBuffer.cpp
-    src/Hazel/Renderer/VertexArray.cpp
-    src/Platform/OpenGL/OpenGLVertexArray.cpp
-    src/Hazel/Renderer/Renderer.cpp
-    src/Hazel/Renderer/RendererAPI.cpp
-    src/Hazel/Renderer/RenderCommand.cpp
-    src/Platform/OpenGL/OpenGLRendererAPI.cpp
-    src/Platform/OpenGL/OpenGLShader.cpp
-    src/Hazel/Renderer/OrthographicCamera.cpp
+# Automatically pick up engine implementation files. CONFIGURE_DEPENDS asks
+# CMake to regenerate the build system when matching files are added or removed.
+file(GLOB_RECURSE HAZEL_ENGINE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Hazel/*.cpp"
 )
 
-# ImGuiBuild.cpp is intentionally excluded. ImGui's GLFW and OpenGL3 backend
-# sources are compiled once by the imgui target in the workspace CMake file.
+file(GLOB_RECURSE HAZEL_OPENGL_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/OpenGL/*.cpp"
+)
+
+# ImGui's GLFW and OpenGL3 backends are already compiled by the imgui target in
+# the workspace CMake file, so the old amalgamation source must not be compiled.
+list(FILTER HAZEL_ENGINE_SOURCES EXCLUDE REGEX
+    "[/\\\\]ImGui[/\\\\]ImGuiBuild\\.cpp$"
+)
+
 if(WIN32)
-    list(APPEND HAZEL_SOURCES
-        src/Platform/Windows/WindowsInput.cpp
-        src/Platform/Windows/WindowsWindow.cpp
+    file(GLOB_RECURSE HAZEL_PLATFORM_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Windows/*.cpp"
     )
 else()
     message(FATAL_ERROR "Hazel currently only supports Windows")
@@ -31,23 +24,25 @@ endif()
 
 file(GLOB_RECURSE HAZEL_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
 )
 
-file(GLOB_RECURSE SPDLOG_HEADERS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/spdlog/include/spdlog/*.h"
+set(STB_IMAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/stb_image")
+set(STB_IMAGE_SOURCES
+    "${STB_IMAGE_DIR}/stb_image.cpp"
+    "${STB_IMAGE_DIR}/stb_image.h"
 )
 
-file(GLOB_RECURSE GLM_HEADERS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm/glm/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm/glm/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm/glm/*.inl"
+set(HAZEL_SOURCES
+    ${HAZEL_ENGINE_SOURCES}
+    ${HAZEL_OPENGL_SOURCES}
+    ${HAZEL_PLATFORM_SOURCES}
 )
 
 add_library(Hazel STATIC
     ${HAZEL_SOURCES}
     ${HAZEL_HEADERS}
-    ${SPDLOG_HEADERS}
-    ${GLM_HEADERS}
+    ${STB_IMAGE_SOURCES}
 )
 
 add_library(Hazel::Hazel ALIAS Hazel)
@@ -57,14 +52,9 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src"
     FILES ${HAZEL_SOURCES} ${HAZEL_HEADERS}
 )
 
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/spdlog/include"
-    PREFIX "Dependencies/spdlog"
-    FILES ${SPDLOG_HEADERS}
-)
-
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm"
-    PREFIX "Dependencies/glm"
-    FILES ${GLM_HEADERS}
+source_group(TREE "${STB_IMAGE_DIR}"
+    PREFIX "Dependencies/stb_image"
+    FILES ${STB_IMAGE_SOURCES}
 )
 
 target_include_directories(Hazel
@@ -72,10 +62,12 @@ target_include_directories(Hazel
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
 )
 
-target_include_directories(Hazel
-    SYSTEM PUBLIC
+target_include_directories(Hazel SYSTEM
+    PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/spdlog/include>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm>"
+    PRIVATE
+        "$<BUILD_INTERFACE:${STB_IMAGE_DIR}>"
 )
 
 target_compile_definitions(Hazel
