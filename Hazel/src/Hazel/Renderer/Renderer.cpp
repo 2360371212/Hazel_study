@@ -14,6 +14,7 @@ namespace Hazel{
     void Renderer::EndScene(){
 
     };
+    
 
     void Renderer::Submit(const Ref<Shader> shader,const Ref<VertexArray>& vertexArray, const glm::mat4& transform){
         shader->Bind();
@@ -26,4 +27,7 @@ namespace Hazel{
     };
 
 
+    void Renderer::Init(){
+        RenderCommand::Init();
+    };
 }

@@ -15,6 +15,10 @@ namespace Hazel{
             inline static void Clear() {
                 s_RendererAPI->Clear();
             }                  
+
+            inline static void Init(){
+                s_RendererAPI->Init();
+            }
         private:
             static RendererAPI* s_RendererAPI;
     };
