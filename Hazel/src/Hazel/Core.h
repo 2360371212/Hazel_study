@@ -32,6 +32,4 @@ namespace Hazel{
 
     template<typename T>
     using Ref = std::shared_ptr<T>;
-
-
 }

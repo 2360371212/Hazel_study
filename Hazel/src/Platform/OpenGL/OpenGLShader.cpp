@@ -24,9 +24,20 @@ namespace Hazel{
         std::string source = ReadFile(filepath); 
         auto shaderSources = PreProcess(source);
         Compile(shaderSources);
+
+        // 从文件路径寻找名字 
+        // assets/shaders/Texture.glsl
+        auto lastSlash = filepath.find_last_of("/\\");
+        lastSlash = lastSlash == std::string::npos ? 0 : lastSlash + 1; 
+        auto lastDot = filepath.rfind('.');
+        auto count = lastDot == std::string::npos ? filepath.size() - lastSlash : lastDot - lastSlash;
+
+        m_Name = filepath.substr(lastSlash, count);
     }
 
-    OpenGLShader::OpenGLShader(const std::string& vertexSrc, const std::string& fragmentSrc){
+    OpenGLShader::OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)
+        : m_Name(name)
+    {
         std::unordered_map<GLenum, std::string> shaderSources;
         shaderSources[GL_VERTEX_SHADER] = vertexSrc;
         shaderSources[GL_FRAGMENT_SHADER] = fragmentSrc;
@@ -39,7 +50,7 @@ namespace Hazel{
 
     std::string OpenGLShader::ReadFile(const std::string& filepath){
         std::string result;
-        std::ifstream in(filepath, std::ios::in, std::ios::binary);
+        std::ifstream in(filepath, std::ios::in | std::ios::binary);
         if(in)
         {
             in.seekg(0, std::ios::end);     
@@ -82,7 +93,10 @@ namespace Hazel{
     void OpenGLShader::Compile(const std::unordered_map<GLenum, std::string>& shaderSources){
         GLuint program = glCreateProgram();
 
-        std::vector<GLenum> glShaderIDs(shaderSources.size());
+        HZ_CORE_ASSERT(shaderSources.size() <= 2, "We only support 2 shaders for now");
+
+        std::array<GLenum, 2> glShaderIDs;
+        int glShaderIndex = 0;
 
         for (auto& kv : shaderSources){
             GLenum type = kv.first;
@@ -118,7 +132,7 @@ namespace Hazel{
             }
             // Attach our shaders to our program
             glAttachShader(program, shader);
-            glShaderIDs.push_back(shader);
+            glShaderIDs[glShaderIndex++] = shader;
         }
 
         m_RendererID = program; 

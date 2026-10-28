@@ -69,7 +69,7 @@ class ExampleLayer : public Hazel::Layer{
                 }
             )";
 
-            trangleShader.reset(Hazel::Shader::Create(vertexSrc, fragmentSrc));
+            trangleShader = Hazel::Shader::Create("VertexColorTriangle",vertexSrc, fragmentSrc);
 
             squareVertexArray.reset(Hazel::VertexArray::Create());
 
@@ -79,7 +79,6 @@ class ExampleLayer : public Hazel::Layer{
                 0.5f, 0.5f, 0.0f, 1.0f, 1.0f,
                 -0.5f, 0.5f, 0.0f, 0.0f, 1.0f
             };
-
             
             std::shared_ptr<Hazel::VertexBuffer> squareVertexBuffer;
             squareVertexBuffer.reset(Hazel::VertexBuffer::Create(squareVertices, sizeof(squareVertices)));
@@ -87,6 +86,7 @@ class ExampleLayer : public Hazel::Layer{
                 {Hazel::ShaderDataType::Float3, "a_Position"},
                 {Hazel::ShaderDataType::Float2, "a_TexCoord"}
             };
+
             squareVertexBuffer->SetLayout(squareLayout);
             
             uint32_t squareIndices[6] = {0, 1, 2, 2, 3, 0};
@@ -129,16 +129,16 @@ class ExampleLayer : public Hazel::Layer{
                 }
             )";
             // 纯色着色器
-            squareShader.reset(Hazel::Shader::Create(vertexSrc2, flatColorShaderFragmentSrc));
+            squareShader = Hazel::Shader::Create("FlatColor",vertexSrc2, flatColorShaderFragmentSrc);
 
 
-            m_TextureShader.reset(Hazel::Shader::Create("D:/Project/cpp/Hazel/Sandbox/assets/shaders/Texture.glsl"));
+            auto textureShader = m_ShaderLibrary.Load("D:/Project/cpp/Hazel/Sandbox/assets/shaders/Texture.glsl");
 
             m_Texture = Hazel::Texture2D::Create("D:/Project/cpp/Hazel/Sandbox/assets/textures/test.jpg");
 
-            std::dynamic_pointer_cast<Hazel::OpenGLShader>(m_TextureShader)->Bind();
+            std::dynamic_pointer_cast<Hazel::OpenGLShader>(textureShader)->Bind();
             // select the texture slot
-            std::dynamic_pointer_cast<Hazel::OpenGLShader>(m_TextureShader)->UploadUniformInt("u_Texture", 0);
+            std::dynamic_pointer_cast<Hazel::OpenGLShader>(textureShader)->UploadUniformInt("u_Texture", 0);
         }
         
         void OnUpdate(Hazel::Timestep deltaTime) override{
@@ -197,7 +197,11 @@ class ExampleLayer : public Hazel::Layer{
             }
 
             m_Texture->Bind();
-            Hazel::Renderer::Submit(m_TextureShader, squareVertexArray, glm::scale(glm::mat4(1.0f), glm::vec3(1.5f)));
+
+
+            auto textureShader = m_ShaderLibrary.Get("Texture");
+
+            Hazel::Renderer::Submit(textureShader, squareVertexArray, glm::scale(glm::mat4(1.0f), glm::vec3(1.5f)));
 
             // Hazel::Renderer::Submit(trangleShader, vertexArray);
             Hazel::Renderer::EndScene();
@@ -215,8 +219,10 @@ class ExampleLayer : public Hazel::Layer{
         }
 
     private:
+        Hazel::ShaderLibrary m_ShaderLibrary;
+
         Hazel::Ref<Hazel::Shader> trangleShader;
-        Hazel::Ref<Hazel::Shader> squareShader, m_TextureShader;
+        Hazel::Ref<Hazel::Shader> squareShader;
         Hazel::Ref<Hazel::VertexArray> vertexArray;
         Hazel::Ref<Hazel::VertexArray> squareVertexArray;
 
