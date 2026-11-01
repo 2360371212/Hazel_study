@@ -52,7 +52,9 @@ namespace Hazel {
                 : m_Event(event) {}
             template<typename T>
             bool Dispatch(EventFn<T> func) {
+                // 事件类型是否匹配
                 if (m_Event.GetEventType() == T::GetStaticType()){
+                    // 调用函数
                     m_Event.m_Handled = func(*(T*)&m_Event);
                     return true;
                 }

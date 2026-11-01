@@ -28,6 +28,8 @@ namespace Hazel {
         private:
             bool OnWindowClosed(WindowCloseEvent& e);
 
+            bool OnWindowResized(WindowResizeEvent& e);
+
             std::unique_ptr<Window> m_Window;
             ImGuiLayer* m_ImGuiLayer;
 
@@ -39,6 +41,7 @@ namespace Hazel {
 
         protected:
             bool m_Running = true;
+            bool m_Minimized = false;
     };
 
     // To be defined in CLIENT
