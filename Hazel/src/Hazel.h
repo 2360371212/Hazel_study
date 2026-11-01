@@ -21,7 +21,7 @@
 #include "Hazel/Renderer/Renderer.h"
 #include "Hazel/Renderer/RenderCommand.h"
 #include "Hazel/Renderer/RendererAPI.h"
-#include "Hazel/Renderer/OrthographicCamera.h"
+#include "Hazel/OrthographicCameraController.h"
 #include "Hazel/Renderer/Texture.h"
 
 #include "Hazel/Core/Timestep.h"

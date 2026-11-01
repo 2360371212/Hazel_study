@@ -8,11 +8,12 @@ namespace Hazel{
 
 
     void Renderer::BeginScene(OrthographicCamera& camera){
+        // 设置视图投影矩阵
         m_SceneData->ViewProjectionMatrix = camera.GetViewProjectionMatrix();
     };
 
     void Renderer::EndScene(){
-
+        
     };
     
 
