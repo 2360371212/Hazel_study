@@ -25,11 +25,11 @@ namespace Hazel{
                 return m_ViewMatrix;
             }
 
-            const glm::mat4& GetProjectionMatrix(){
+            const glm::mat4& GetProjectionMatrix() const {
                 return m_ProjectionMatrix;
             }
 
-            const glm::mat4& GetViewProjectionMatrix(){
+            const glm::mat4& GetViewProjectionMatrix() const {
                 return m_ViewProjectionMatrix;
             }
 
