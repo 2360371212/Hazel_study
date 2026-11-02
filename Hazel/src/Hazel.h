@@ -11,9 +11,6 @@
 // For use by Hazel applications
 #include "Hazel/Core/Application.h"
 
-// Entry Point
-#include "Hazel/Core/EntryPoint.h"
-
 //Render
 #include "Hazel/Renderer/Buffer.h"
 #include "Hazel/Renderer/VertexArray.h"

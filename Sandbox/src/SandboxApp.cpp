@@ -4,13 +4,15 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "Platform/OpenGL/OpenGLShader.h"
 #include "glm/gtc/type_ptr.hpp"
+#include "Sandbox2D.h"
+#include "Hazel/Core/EntryPoint.h"
 
 class ExampleLayer : public Hazel::Layer{
     public:
         ExampleLayer()
             : Layer("Example"), m_CameraController(1280.0f / 720.0f, true), m_CameraPosition({0.0f, 0.0f, 0.0f}), m_SquarePosition({0.0f, 0.0f, 0.0f}){
             
-            vertexArray.reset(Hazel::VertexArray::Create());
+            vertexArray = Hazel::VertexArray::Create();
 
             float trangleVertices[3 * 7] = {
                 -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
@@ -71,7 +73,7 @@ class ExampleLayer : public Hazel::Layer{
 
             trangleShader = Hazel::Shader::Create("VertexColorTriangle",vertexSrc, fragmentSrc);
 
-            squareVertexArray.reset(Hazel::VertexArray::Create());
+            squareVertexArray = Hazel::VertexArray::Create();
 
             float squareVertices[4 * 5] = {
                 -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
@@ -214,7 +216,7 @@ class ExampleLayer : public Hazel::Layer{
 class Sandbox : public Hazel::Application {
     public:
         Sandbox() {
-            PushLayer(new ExampleLayer());
+            PushLayer(new Sandbox2D());
         }
 
         ~Sandbox() {

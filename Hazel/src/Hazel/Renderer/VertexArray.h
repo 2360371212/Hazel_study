@@ -18,7 +18,7 @@ namespace Hazel{
             virtual const Ref<IndexBuffer> GetIndexBuffer() const = 0;
 
             // virtual void SetLayout(const BufferLayout& layout) const = 0;
-            static VertexArray* Create();
+            static Ref<VertexArray> Create();
 
     };
 }
