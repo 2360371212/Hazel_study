@@ -12,34 +12,7 @@ Sandbox2D::Sandbox2D()
 
 
 void Sandbox2D::OnAttach(){
-        m_SquareVA = Hazel::VertexArray::Create();
-
-        float squareVertices[4 * 5] = {
-            -0.5f, -0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            0.5f, 0.5f, 0.0f, 
-            -0.5f, 0.5f, 0.0f, 
-        };
-            
-        Hazel::Ref<Hazel::VertexBuffer> squareVB;
-        squareVB.reset(Hazel::VertexBuffer::Create(squareVertices, sizeof(squareVertices)));
-
-        Hazel::BufferLayout squareLayout= {
-            {Hazel::ShaderDataType::Float3, "a_Position"},
-        };
-
-        squareVB->SetLayout(squareLayout);
-            
-        uint32_t squareIndices[6] = {0, 1, 2, 2, 3, 0};
-        Hazel::Ref<Hazel::IndexBuffer> squareIB;
-        squareIB.reset(Hazel::IndexBuffer::Create(squareIndices, sizeof(squareIndices)/ sizeof(uint32_t)));
-
-        m_SquareVA->AddVertexBuffer(squareVB);
-        m_SquareVA->SetIndexBuffer(squareIB);
-
-
-            // 纯色着色器
-        m_FlatColorShader = Hazel::Shader::Create("D:/Project/cpp/Hazel/Sandbox/assets/shaders/FlatColorShader.glsl");
+    m_CheckerboardTexture = Hazel::Texture2D::Create("D:/Project/cpp/Hazel/Sandbox/assets/textures/test.jpg");
 }
 
 void Sandbox2D::OnDetach(){
@@ -56,6 +29,8 @@ void Sandbox2D::OnUpdate(Hazel::Timestep deltaTime){
 
     Hazel::Renderer2D::BeginScene(m_CameraController.GetCamera());
     Hazel::Renderer2D::DrawQuad(glm::vec3(0.0f), glm::vec2(1.0f), m_SquareColor);
+    Hazel::Renderer2D::DrawQuad({-1.f, 0.f},{0.8f, 0.8f}, {0.2, 0.1, 0.8f, 1.f});
+    Hazel::Renderer2D::DrawQuad({0.5f, -0.5f, 0.1f}, {0.75f, 0.75f}, m_CheckerboardTexture);
     Hazel::Renderer2D::EndScene();
 
     // TODO

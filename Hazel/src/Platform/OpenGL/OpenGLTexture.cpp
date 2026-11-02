@@ -6,6 +6,25 @@
 #include <glad/glad.h>
 
 namespace Hazel{
+
+    OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height)
+        :m_Width(width), m_Height(height)
+    {
+
+        m_InternalFormat = GL_RGBA8;
+        m_DataFormat = GL_RGBA;
+
+        // HZ_CORE_ASSERT(internalFormat & dataFormat, "Format not support");
+
+        glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+        glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
+
+        glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    }
      
     OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
         :m_Path(path)
@@ -28,19 +47,32 @@ namespace Hazel{
             dataFormat = GL_RGB;
         }
 
+        m_InternalFormat = internalFormat;
+        m_DataFormat = dataFormat;
+
         HZ_CORE_ASSERT(internalFormat & dataFormat, "Format not support");
 
         glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
         glTextureStorage2D(m_RendererID, 1, internalFormat, m_Width, m_Height);
 
         glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
         // Upload to GPU
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, dataFormat, GL_UNSIGNED_BYTE, data);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
         // free cpu memory
         stbi_image_free(data);
+    }
+
+    void OpenGLTexture2D::SetData(void* data, uint32_t size){
+
+        HZ_CORE_ASSERT(size == m_Width * m_Height * (m_DataFormat == GL_RGBA ? 4 : 3), "Data must be entire texture!");
+
+        glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, m_DataFormat, GL_UNSIGNED_BYTE, data);
     }
 
     OpenGLTexture2D::~OpenGLTexture2D(){

@@ -19,6 +19,7 @@ class Sandbox2D : public Hazel::Layer{
 
         Hazel::Ref<Hazel::VertexArray> m_SquareVA;
         Hazel::Ref<Hazel::Shader> m_FlatColorShader;
+        Hazel::Ref<Hazel::Texture> m_CheckerboardTexture;
 
         glm::vec4 m_SquareColor = {0.2f, 0.7f, 0.8f, 1.0f};
 

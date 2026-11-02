@@ -18,4 +18,18 @@ namespace Hazel{
         HZ_CORE_ASSERT(false, "UnKnow RendererAPI!");
         return nullptr;
     }
+
+    Ref<Texture2D> Texture2D::Create(uint32_t width, uint32_t height){
+        switch (Renderer::GetAPI())
+        {
+            case RendererAPI::API::None:{
+                HZ_CORE_ASSERT(false, "RendererAPI currently not supported");
+            }
+            case RendererAPI::API::OpenGL:{
+                return std::make_shared<OpenGLTexture2D>(width, height);
+            }
+        }
+        HZ_CORE_ASSERT(false, "UnKnow RendererAPI!");
+        return nullptr;
+    }
 }
