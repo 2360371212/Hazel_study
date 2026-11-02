@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Hazel/Core.h"
+#include "Hazel/Core/Core.h"
 #include "hzpch.h"
 
 namespace Hazel {
@@ -67,5 +67,4 @@ namespace Hazel {
     inline std::ostream& operator<<(std::ostream& os, const Event& e) {
         return os << e.ToString();
     }
-    
 }

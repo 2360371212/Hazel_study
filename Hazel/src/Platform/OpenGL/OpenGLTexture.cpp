@@ -1,6 +1,6 @@
 #include "hzpch.h"
 #include "OpenGLTexture.h"
-#include "Hazel/Log.h"
+#include "Hazel/Core/Log.h"
 #include "stb_image.h"
 
 #include <glad/glad.h>

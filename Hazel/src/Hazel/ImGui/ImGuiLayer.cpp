@@ -1,13 +1,13 @@
 #include "hzpch.h"
 #include "ImGuiLayer.h"
-#include "Hazel/Core.h"
+#include "Hazel/Core/Core.h"
 
 #include "imgui.h"
 #include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_glfw.h"
 
-#include "Hazel/Application.h"
-#include "Hazel/KeyCodes.h"
+#include "Hazel/Core/Application.h"
+#include "Hazel/Core/KeyCodes.h"
 
 
 #include "GLFW/glfw3.h"
