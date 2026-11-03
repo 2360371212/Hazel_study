@@ -25,7 +25,11 @@ void Sandbox2D::OnUpdate(Hazel::Timestep deltaTime){
     HZ_PROFILE_FUNCTION(); 
 
     // Update
-    m_CameraController.OnUpdate(deltaTime);
+    {
+        HZ_PROFILE_SCOPE("CameraController OnUpdate");
+        m_CameraController.OnUpdate(deltaTime);
+    }
+
 
     // Render
     Hazel::RenderCommand::SetClearColor({0.1f, 0.1f, 0.1f, 1});
@@ -34,7 +38,7 @@ void Sandbox2D::OnUpdate(Hazel::Timestep deltaTime){
     Hazel::Renderer2D::BeginScene(m_CameraController.GetCamera());
     Hazel::Renderer2D::DrawQuad(glm::vec3(0.0f), glm::vec2(1.0f), m_SquareColor);
     Hazel::Renderer2D::DrawQuad({-1.f, 0.f},{0.8f, 0.8f}, {0.2, 0.1, 0.8f, 1.f});
-    Hazel::Renderer2D::DrawQuad({0.5f, -0.5f, 0.1f}, {0.75f, 0.75f}, m_CheckerboardTexture);
+    Hazel::Renderer2D::DrawRotatedQuad({0.5f, -0.5f, 0.1f}, {0.75f, 0.75f}, glm::radians(45.f) ,m_CheckerboardTexture);
     Hazel::Renderer2D::EndScene();
 
     // TODO

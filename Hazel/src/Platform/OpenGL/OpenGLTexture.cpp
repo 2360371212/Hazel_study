@@ -2,7 +2,7 @@
 #include "OpenGLTexture.h"
 #include "Hazel/Core/Log.h"
 #include "stb_image.h"
-
+#include "Hazel/Debug/Instrumentor.h"
 #include <glad/glad.h>
 
 namespace Hazel{
@@ -29,9 +29,14 @@ namespace Hazel{
     OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
         :m_Path(path)
     {
+        HZ_PROFILE_FUNCTION();
         int width, height, channels;
         stbi_set_flip_vertically_on_load(1);
-        stbi_uc* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+        stbi_uc* data = nullptr;
+        {
+            HZ_PROFILE_SCOPE("stbi_load - OpenGLTexture2D::OpenGLTexture2D(const std::string&)");
+            data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+        }
         HZ_CORE_ASSERT(data, "Failed to load image!");
         m_Width = width;
         m_Height = height;

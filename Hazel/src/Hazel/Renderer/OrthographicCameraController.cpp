@@ -14,6 +14,7 @@ namespace Hazel{
 
     void OrthographicCameraController::OnUpdate(Timestep deltaTime)
     {
+        HZ_PROFILE_FUNCTION();
         if (Input::IsKeyPressed(HZ_KEY_A)){
                 m_CameraPosition.x -= m_CameraMoveSpeed * deltaTime;
         } else if (Hazel::Input::IsKeyPressed(HZ_KEY_D)){
@@ -39,6 +40,7 @@ namespace Hazel{
 
     void OrthographicCameraController::OnEvent(Event& e)
     {
+        HZ_PROFILE_FUNCTION();
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<MouseScrolledEvent>(HZ_BIND_EVENT_FN(OrthographicCameraController::OnMouseScrolled));
         dispatcher.Dispatch<WindowResizeEvent>(HZ_BIND_EVENT_FN(OrthographicCameraController::OnWindowResized));

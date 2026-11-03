@@ -17,6 +17,9 @@ namespace Hazel{
     static Renderer2DStorage* s_Data;
 
     void Renderer2D::Init(){
+
+        HZ_PROFILE_FUNCTION();
+
         s_Data = new Renderer2DStorage();
 
         s_Data->QuadVertexArray = VertexArray::Create();
@@ -75,7 +78,9 @@ namespace Hazel{
     }
 
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color){
+        HZ_PROFILE_FUNCTION();
 
+        s_Data->TextureShader->SetFloat("u_TilingFactor", 1.0f);
         s_Data->TextureShader->SetFloat4("u_Color", color);
         // Bind white Texture
         s_Data->WhiteTexture->Bind();
@@ -89,19 +94,64 @@ namespace Hazel{
         RenderCommand::DrawIndexed(s_Data->QuadVertexArray);
     }
 
-    void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const Ref<Texture>& texture){
-        DrawQuad(glm::vec3(position, 0.0f), size, texture);
+    void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+        DrawQuad(glm::vec3(position, 0.0f), size, texture, tilingFactor, tintColor);
     }
 
-    void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture){
+    void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+        HZ_PROFILE_FUNCTION();
         // 绑定白色
-        s_Data->TextureShader->SetFloat4("u_Color", glm::vec4(1.0f));
+        s_Data->TextureShader->SetFloat4("u_Color", tintColor);
+        s_Data->TextureShader->SetFloat("u_TilingFactor", tilingFactor);
 
         // 绑定纹理单元
         texture->Bind();
 
         // 变换矩阵 = 平移*旋转*缩放
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+        s_Data->TextureShader->SetMat4("u_Transform", transform);
+
+        s_Data->QuadVertexArray->Bind();
+
+        RenderCommand::DrawIndexed(s_Data->QuadVertexArray);
+    }
+
+    void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const glm::vec4& color){
+        DrawRotatedQuad(glm::vec3(position, 0.0f), size, rotation, color); 
+    }
+
+    void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const glm::vec4& color){
+         HZ_PROFILE_FUNCTION();
+
+        s_Data->TextureShader->SetFloat("u_TilingFactor", 1.0f);
+        s_Data->TextureShader->SetFloat4("u_Color", color);
+        // Bind white Texture
+        s_Data->WhiteTexture->Bind();
+
+
+        // 变换矩阵 = 平移*旋转*缩放
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::rotate(glm::mat4(1.0f), rotation, glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+
+        s_Data->TextureShader->SetMat4("u_Transform", transform);
+        s_Data->QuadVertexArray->Bind();
+        RenderCommand::DrawIndexed(s_Data->QuadVertexArray);       
+    }
+
+    void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+        DrawRotatedQuad(glm::vec3(position, 0.0f), size, rotation, texture, tilingFactor, tintColor);
+    }
+
+    void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+        HZ_PROFILE_FUNCTION();
+        // 绑定白色
+        s_Data->TextureShader->SetFloat4("u_Color", tintColor);
+        s_Data->TextureShader->SetFloat("u_TilingFactor", tilingFactor);
+
+        // 绑定纹理单元
+        texture->Bind();
+
+        // 变换矩阵 = 平移*旋转*缩放
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::rotate(glm::mat4(1.0f), rotation, glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
         s_Data->TextureShader->SetMat4("u_Transform", transform);
 
         s_Data->QuadVertexArray->Bind();

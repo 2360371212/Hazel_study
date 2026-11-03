@@ -19,9 +19,11 @@ namespace Hazel
         HZ_CORE_ASSERT(!s_Instance, "Application is already exists!");
         s_Instance = this;
 
+        // 创建窗口
         m_Window = std::unique_ptr<Window>(Window::Create());
         m_Window->SetEventCallback(BIND_EVENT_FN(Application::OnEvent));
         
+        // 初始化渲染器
         Renderer::Init();
 
         m_ImGuiLayer = new ImGuiLayer();
@@ -55,14 +57,21 @@ namespace Hazel
 
             // 每一层进行更新
             if (!m_Minimized) {
-                for(Layer* layer : m_LayerStack){
-                    layer->OnUpdate(timestep);
+                {
+                    HZ_PROFILE_SCOPE("LayerStack OnUpdate");
+                    for(Layer* layer : m_LayerStack){
+                        layer->OnUpdate(timestep);
+                    }
                 }
             }
             m_ImGuiLayer->Begin();
+
             // ImGUI层更新
-            for (Layer* layer : m_LayerStack)
-                layer->OnImGuiRender();
+            {
+                HZ_PROFILE_SCOPE("LayerStack OnImGuiRender");
+                for (Layer* layer : m_LayerStack)
+                    layer->OnImGuiRender();
+            }
             m_ImGuiLayer->End();
             m_Window->OnUpdate();
         }
