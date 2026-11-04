@@ -13,6 +13,9 @@ namespace Hazel{
 		glm::vec3 Position;
 		glm::vec4 Color;
 		glm::vec2 TexCoord;
+
+        float TexIndex;
+        float TilingFactor;
 		// TODO: texid
 	};
 
@@ -22,6 +25,7 @@ namespace Hazel{
 		const uint32_t MaxQuads = 10000;
 		const uint32_t MaxVertices = MaxQuads * 4;
 		const uint32_t MaxIndices = MaxQuads * 6;
+        static const uint32_t MaxTextureSlots = 32;
 
 		Ref<VertexArray> QuadVertexArray;
 		Ref<VertexBuffer> QuadVertexBuffer;
@@ -31,6 +35,10 @@ namespace Hazel{
 		uint32_t QuadIndexCount = 0;
 		QuadVertex* QuadVertexBufferBase = nullptr;
 		QuadVertex* QuadVertexBufferPtr = nullptr;
+
+        std::array<Ref<Texture2D>, MaxTextureSlots> TextureSlots;
+
+        uint32_t TextureSlotIndex = 1;  // 0号是纯白色纹理
 	};
 
 	static Renderer2DData s_Data;
@@ -47,15 +55,18 @@ namespace Hazel{
 		s_Data.QuadVertexBuffer->SetLayout({
 			{ ShaderDataType::Float3, "a_Position" },
 			{ ShaderDataType::Float4, "a_Color" },
-			{ ShaderDataType::Float2, "a_TexCoord" }
+			{ ShaderDataType::Float2, "a_TexCoord" },
+            { ShaderDataType::Float, "a_TexCoord"},
+            { ShaderDataType::Float, "a_TilingFactor"}
 		});
 
+        
 		s_Data.QuadVertexArray->AddVertexBuffer(s_Data.QuadVertexBuffer);
 
 		s_Data.QuadVertexBufferBase = new QuadVertex[s_Data.MaxVertices];
 
+        // 设置index
 		uint32_t* quadIndices = new uint32_t[s_Data.MaxIndices];
-
 		uint32_t offset = 0;
 		for (uint32_t i = 0; i < s_Data.MaxIndices; i += 6)
 		{
@@ -70,6 +81,7 @@ namespace Hazel{
 			offset += 4;
 		}
 
+
 		Ref<IndexBuffer> quadIB = IndexBuffer::Create(quadIndices, s_Data.MaxIndices);
 		s_Data.QuadVertexArray->SetIndexBuffer(quadIB);
 		delete[] quadIndices;
@@ -79,10 +91,17 @@ namespace Hazel{
         s_Data.WhiteTexture->SetData(&whiteTextureData, sizeof(uint32_t));
 
 
-        // 纹理着色器
+        int32_t samplers[s_Data.MaxTextureSlots];
+		for (uint32_t i = 0; i < s_Data.MaxTextureSlots; i++)
+			samplers[i] = i;
+
+        // 设置纹理着色器
         s_Data.TextureShader = Shader::Create("D:/Project/cpp/Hazel/Sandbox/assets/shaders/Texture.glsl");
         s_Data.TextureShader->Bind();
-        s_Data.TextureShader->SetInt("u_Texture", 0);
+        s_Data.TextureShader->SetIntArray("u_Textures", samplers, s_Data.MaxTextureSlots);
+
+        // 初始化内存中的纹理槽位
+        s_Data.TextureSlots[0]  = s_Data.WhiteTexture;
 
     }
 
@@ -98,6 +117,8 @@ namespace Hazel{
 
 		s_Data.QuadIndexCount = 0;
 		s_Data.QuadVertexBufferPtr = s_Data.QuadVertexBufferBase; 
+
+        s_Data.TextureSlotIndex = 1;
     }
 
 
@@ -112,6 +133,9 @@ namespace Hazel{
     }
 
     void Renderer2D::Flush(){
+        // Bind Texture
+        for (uint32_t i = 0; i < s_Data.TextureSlotIndex; i++)
+			s_Data.TextureSlots[i]->Bind(i);
         
         RenderCommand::DrawIndexed(s_Data.QuadVertexArray, s_Data.QuadIndexCount); 
     }
@@ -123,24 +147,34 @@ namespace Hazel{
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color){
         HZ_PROFILE_FUNCTION();
 
+        const float texIndex = 0.0f; // White Textureconst 
+
 		s_Data.QuadVertexBufferPtr->Position = position;
 		s_Data.QuadVertexBufferPtr->Color = color;
 		s_Data.QuadVertexBufferPtr->TexCoord = { 0.0f, 0.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = texIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = 1.0f;
 		s_Data.QuadVertexBufferPtr++;
 
 		s_Data.QuadVertexBufferPtr->Position = { position.x + size.x, position.y, 0.0f };
 		s_Data.QuadVertexBufferPtr->Color = color;
 		s_Data.QuadVertexBufferPtr->TexCoord = { 1.0f, 0.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = texIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = 1.0f;
 		s_Data.QuadVertexBufferPtr++;
 
 		s_Data.QuadVertexBufferPtr->Position = { position.x + size.x, position.y + size.y, 0.0f };
 		s_Data.QuadVertexBufferPtr->Color = color;
 		s_Data.QuadVertexBufferPtr->TexCoord = { 1.0f, 1.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = texIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = 1.0f;
 		s_Data.QuadVertexBufferPtr++;
 
 		s_Data.QuadVertexBufferPtr->Position = { position.x, position.y + size.y, 0.0f };
 		s_Data.QuadVertexBufferPtr->Color = color;
 		s_Data.QuadVertexBufferPtr->TexCoord = { 0.0f, 1.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = texIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = 1.0f;
 		s_Data.QuadVertexBufferPtr++;
 
 		s_Data.QuadIndexCount += 6;
@@ -159,26 +193,86 @@ namespace Hazel{
         // RenderCommand::DrawIndexed(s_Data.QuadVertexArray);
     }
 
-    void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+    void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const Ref<Texture2D>& texture, float tilingFactor, const glm::vec4& tintColor){
         DrawQuad(glm::vec3(position, 0.0f), size, texture, tilingFactor, tintColor);
     }
 
-    void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+    void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture2D>& texture, float tilingFactor, const glm::vec4& tintColor){
         HZ_PROFILE_FUNCTION();
-        // 绑定白色
-        s_Data.TextureShader->SetFloat4("u_Color", tintColor);
-        s_Data.TextureShader->SetFloat("u_TilingFactor", tilingFactor);
 
-        // 绑定纹理单元
-        texture->Bind();
+        constexpr glm::vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
 
-        // 变换矩阵 = 平移*旋转*缩放
-        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
-        s_Data.TextureShader->SetMat4("u_Transform", transform);
+        // 当前绘制对应的纹理插槽
+        float textureIndex = 0.0f;
 
-        s_Data.QuadVertexArray->Bind();
 
-        RenderCommand::DrawIndexed(s_Data.QuadVertexArray);
+
+        for(uint32_t i = 1 ; i < s_Data.TextureSlotIndex; i++){
+            // 判断纹理是否在纹理槽内
+            if (*s_Data.TextureSlots[i].get() == *texture.get())
+            {
+                textureIndex = (float)i;
+                break;
+            }
+        }
+
+
+        // 队列中没有该纹理，将新的纹理放入容器
+        if (textureIndex == 0.0f)
+        {
+            textureIndex = (float)s_Data.TextureSlotIndex;
+            s_Data.TextureSlots[s_Data.TextureSlotIndex] = texture;
+            s_Data.TextureSlotIndex++;
+        }
+
+        // HZ_CORE_INFO("current Texture SlotIndex {}", s_Data.TextureSlotIndex);
+
+		s_Data.QuadVertexBufferPtr->Position = position;
+		s_Data.QuadVertexBufferPtr->Color = color;
+		s_Data.QuadVertexBufferPtr->TexCoord = { 0.0f, 0.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = tilingFactor;
+		s_Data.QuadVertexBufferPtr++;
+
+		s_Data.QuadVertexBufferPtr->Position = { position.x + size.x, position.y, 0.0f };
+		s_Data.QuadVertexBufferPtr->Color = color;
+		s_Data.QuadVertexBufferPtr->TexCoord = { 1.0f, 0.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = tilingFactor;
+		s_Data.QuadVertexBufferPtr++;
+
+		s_Data.QuadVertexBufferPtr->Position = { position.x + size.x, position.y + size.y, 0.0f };
+		s_Data.QuadVertexBufferPtr->Color = color;
+		s_Data.QuadVertexBufferPtr->TexCoord = { 1.0f, 1.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = tilingFactor;
+		s_Data.QuadVertexBufferPtr++;
+
+		s_Data.QuadVertexBufferPtr->Position = { position.x, position.y + size.y, 0.0f };
+		s_Data.QuadVertexBufferPtr->Color = color;
+		s_Data.QuadVertexBufferPtr->TexCoord = { 0.0f, 1.0f };
+        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+        s_Data.QuadVertexBufferPtr->TilingFactor = tilingFactor;
+		s_Data.QuadVertexBufferPtr++;
+
+		s_Data.QuadIndexCount += 6;
+
+
+
+        // // 绑定白色
+        // s_Data.TextureShader->SetFloat4("u_Color", tintColor);
+        // s_Data.TextureShader->SetFloat("u_TilingFactor", tilingFactor);
+
+        // // 绑定纹理单元
+        // texture->Bind();
+
+        // // 变换矩阵 = 平移*旋转*缩放
+        // glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+        // s_Data.TextureShader->SetMat4("u_Transform", transform);
+
+        // s_Data.QuadVertexArray->Bind();
+
+        // RenderCommand::DrawIndexed(s_Data.QuadVertexArray);
     }
 
     void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const glm::vec4& color){
@@ -202,11 +296,11 @@ namespace Hazel{
         RenderCommand::DrawIndexed(s_Data.QuadVertexArray);       
     }
 
-    void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+    void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const Ref<Texture2D>& texture, float tilingFactor, const glm::vec4& tintColor){
         DrawRotatedQuad(glm::vec3(position, 0.0f), size, rotation, texture, tilingFactor, tintColor);
     }
 
-    void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const Ref<Texture>& texture, float tilingFactor, const glm::vec4& tintColor){
+    void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const Ref<Texture2D>& texture, float tilingFactor, const glm::vec4& tintColor){
         HZ_PROFILE_FUNCTION();
         // 绑定白色
         s_Data.TextureShader->SetFloat4("u_Color", tintColor);

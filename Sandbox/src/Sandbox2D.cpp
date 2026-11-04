@@ -36,8 +36,9 @@ void Sandbox2D::OnUpdate(Hazel::Timestep deltaTime){
     Hazel::RenderCommand::Clear();
 
     Hazel::Renderer2D::BeginScene(m_CameraController.GetCamera());
-    Hazel::Renderer2D::DrawQuad({-1.f, 0.f},{0.8f, 0.8f}, {0.2, 0.1, 0.8f, 1.f});
-    Hazel::Renderer2D::DrawQuad({1.f, 0.f},{0.8f, 0.8f}, {1, 0.1, 0.8f, 1.f});
+    Hazel::Renderer2D::DrawQuad({-1.f, 0.f}, {0.8f, 0.8f}, {0.1, 0.1, 0.8f, 1.f});
+    Hazel::Renderer2D::DrawQuad({1.f, 0.f}, {0.8f, 0.8f}, m_CheckerboardTexture, 10.f);
+    Hazel::Renderer2D::DrawQuad({1.f, 1.f}, {0.8f, 0.8f}, m_CheckerboardTexture, 1.f);
     Hazel::Renderer2D::EndScene();
 
     // TODO
