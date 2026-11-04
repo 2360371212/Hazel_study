@@ -4,9 +4,9 @@
 #include "Hazel/Core/Layer.h"
 #include "Hazel/ImGui/ImGuiLayer.h"
 
-#include "Hazel/Core/Input.h"
-#include "Hazel/Core/KeyCodes.h"
-#include "Hazel/Core/MouseButtonCodes.h"
+#include "Hazel/Input/Input.h"
+#include "Hazel/Input/KeyCodes.h"
+#include "Hazel/Input/MouseButtonCodes.h"
 
 // For use by Hazel applications
 #include "Hazel/Core/Application.h"
