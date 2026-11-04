@@ -30,16 +30,25 @@ void Sandbox2D::OnUpdate(Hazel::Timestep deltaTime){
         m_CameraController.OnUpdate(deltaTime);
     }
 
+    {
+        HZ_PROFILE_SCOPE("Renderer Prep")
+        Hazel::RenderCommand::SetClearColor({0.1f, 0.1f, 0.1f, 1});
+        Hazel::RenderCommand::Clear();
+    }
+
 
     // Render
-    Hazel::RenderCommand::SetClearColor({0.1f, 0.1f, 0.1f, 1});
-    Hazel::RenderCommand::Clear();
-
-    Hazel::Renderer2D::BeginScene(m_CameraController.GetCamera());
-    Hazel::Renderer2D::DrawQuad({-1.f, 0.f}, {0.8f, 0.8f}, {0.1, 0.1, 0.8f, 1.f});
-    Hazel::Renderer2D::DrawQuad({1.f, 0.f}, {0.8f, 0.8f}, m_CheckerboardTexture, 10.f);
-    Hazel::Renderer2D::DrawQuad({1.f, 1.f}, {0.8f, 0.8f}, m_CheckerboardTexture, 1.f);
-    Hazel::Renderer2D::EndScene();
+    {
+        static float rotation = 0.0f;
+        rotation += deltaTime * 20.f;
+        HZ_PROFILE_SCOPE("Renderer Draw")
+        Hazel::Renderer2D::BeginScene(m_CameraController.GetCamera());
+        Hazel::Renderer2D::DrawQuad({-1.f, 0.f}, {0.8f, 0.8f}, {0.1, 0.1, 0.8f, 1.f});
+        Hazel::Renderer2D::DrawQuad({1.f, 0.f}, {0.8f, 0.8f}, m_CheckerboardTexture, 10.f);
+        Hazel::Renderer2D::DrawRotatedQuad({1.f, 1.f}, {0.8f, 0.8f}, 45.f, m_CheckerboardTexture, 1.f);
+        Hazel::Renderer2D::DrawRotatedQuad({0.f, 0.f}, {0.8f, 0.8f}, rotation, {0.1, 0.9, 0.8f, 1.f});
+        Hazel::Renderer2D::EndScene();
+    }
 
     // TODO
     // std::dynamic_pointer_cast<Hazel::OpenGLShader>(m_FlatColorShader)->Bind();
@@ -56,7 +65,7 @@ void Sandbox2D::OnImGuiRender(){
 
     m_ProfileResults.clear();
 
-    ImGui::End();
+    ImGui::End(); 
 }
 
 void Sandbox2D::OnEvent(Hazel::Event& event){
