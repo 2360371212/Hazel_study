@@ -1,5 +1,5 @@
 #pragma once
-#include "OrthographicCamera.h"
+#include "Hazel/Camera/OrthographicCamera.h"
 #include "Texture.h"
 
 namespace Hazel{

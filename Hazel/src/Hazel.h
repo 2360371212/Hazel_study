@@ -19,7 +19,7 @@
 #include "Hazel/Renderer/Renderer2D.h"
 #include "Hazel/Renderer/RenderCommand.h"
 #include "Hazel/Renderer/RendererAPI.h"
-#include "Hazel/Renderer/OrthographicCameraController.h"
+#include "Hazel/Camera/OrthographicCameraController.h"
 #include "Hazel/Renderer/Texture.h"
 
 #include "Hazel/Core/Timestep.h"

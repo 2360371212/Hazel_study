@@ -2,7 +2,7 @@
 #include "hzpch.h"
 #include "Hazel/Renderer/VertexArray.h"
 #include "Hazel/Renderer/Shader.h"
-#include "Hazel/Renderer/OrthographicCamera.h"
+#include "Hazel/Camera/OrthographicCamera.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include "Hazel/Renderer/RenderCommand.h"
 
