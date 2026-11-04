@@ -270,21 +270,6 @@ namespace Hazel{
 		s_Data.QuadIndexCount += 6;
 
 
-
-        // // 绑定白色
-        // s_Data.TextureShader->SetFloat4("u_Color", tintColor);
-        // s_Data.TextureShader->SetFloat("u_TilingFactor", tilingFactor);
-
-        // // 绑定纹理单元
-        // texture->Bind();
-
-        // // 变换矩阵 = 平移*旋转*缩放
-        // glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
-        // s_Data.TextureShader->SetMat4("u_Transform", transform);
-
-        // s_Data.QuadVertexArray->Bind();
-
-        // RenderCommand::DrawIndexed(s_Data.QuadVertexArray);
     }
 
     void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const glm::vec4& color){
