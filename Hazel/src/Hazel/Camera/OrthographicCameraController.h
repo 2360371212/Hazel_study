@@ -10,8 +10,7 @@ namespace Hazel{
     class OrthographicCameraController{
         public:
             OrthographicCameraController(float aspectRatio, bool rotation = false);  // aspectRatio: 宽高比，rotation: 是否旋转
-
-
+            
             void OnUpdate(Timestep deltaTime);
             void OnEvent(Event& e);
 
