@@ -39,15 +39,15 @@ namespace Hazel{
             float m_NearClip;
             float m_FarClip;
 
-            glm::vec3 m_Position;
-            glm::vec3 m_RotationRadians = glm::vec3(1.0f); // pitch、yaw、roll
+            glm::vec3 m_Position{ 0.0f, 0.0f, 5.0f };
+            glm::vec3 m_RotationRadians{ 0.0f }; // pitch、yaw、roll
 
-            glm::vec3 m_Forward{ 0.0f, 0.0f, -1.0f };
-            glm::vec3 m_Right{ 1.0f, 0.0f, 0.0f };
-            glm::vec3 m_Up{ 0.0f, 1.0f, 0.0f };
+            glm::vec3 m_Forward{0.0f, 0.0f, -1.0f};
+            glm::vec3 m_Right{1.0f, 0.0f, 0.0f};
+            glm::vec3 m_Up{0.0f, 1.0f, 0.0f};
 
-            glm::mat4 m_ViewMatrix;
-            glm::mat4 m_ProjectionMatrix;
-            glm::mat4 m_ViewProjectionMatrix; 
+            glm::mat4 m_ViewMatrix{1.0f};
+            glm::mat4 m_ProjectionMatrix{1.0f};
+            glm::mat4 m_ViewProjectionMatrix{1.0f}; 
     };
 }

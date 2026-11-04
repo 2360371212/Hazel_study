@@ -13,30 +13,36 @@ namespace Hazel{
     {}
 
     void FlyCameraController::OnUpdate(Timestep deltaTime){
-        if (!m_Enabled ||
-            !Input::IsMouseButtonPressed(HZ_MOUSE_BUTTON_RIGHT))
+        if (!m_Enabled)
         {
             m_Looking = false;
             return;
         }
 
-        const auto [mouseX, mouseY] = Input::GetMousePosition();
-        const glm::vec2 mousePosition{ mouseX, mouseY };
-
-        if (!m_Looking)
+        if (Input::IsMouseButtonPressed(HZ_MOUSE_BUTTON_RIGHT))
         {
-            // 刚按下右键时只记录起点，避免视角突然跳转。
+            const auto [mouseX, mouseY] = Input::GetMousePosition();
+            const glm::vec2 mousePosition{ mouseX, mouseY };
+
+            if (!m_Looking)
+            {
+                m_LastMousePosition = mousePosition;
+                m_Looking = true;
+            }
+
+            // 确定鼠标移动方向
+            const glm::vec2 mouseDelta = mousePosition - m_LastMousePosition;
+
             m_LastMousePosition = mousePosition;
-            m_Looking = true;
+
+            UpdateRotation(mouseDelta);
+        }
+        else
+        {
+            m_Looking = false;
         }
 
-        // 确定鼠标移动方向
-        const glm::vec2 mouseDelta = mousePosition - m_LastMousePosition;
-
-        m_LastMousePosition = mousePosition;
-
-        // 先旋转，再使用新的朝向移动。
-        UpdateRotation(mouseDelta);
+        // 键盘移动不依赖右键；旋转后使用新的朝向。
         UpdateTranslation(deltaTime);
     }
 
@@ -112,6 +118,9 @@ namespace Hazel{
             direction -= worldUp;
 
         const float lengthSquared = glm::dot(direction, direction);
+
+        if (lengthSquared <= 0.000001f)
+            return;
 
         direction /= std::sqrt(lengthSquared);
 

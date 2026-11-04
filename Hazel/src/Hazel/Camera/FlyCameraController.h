@@ -23,6 +23,14 @@ namespace Hazel{
             void SetMoveSpeed(float unitsPerSecond);
             void SetMouseSensitivity(float radiansPerPixel);
 
+            PerspectiveCamera& GetCamera() {
+                return m_Camera;
+            }
+
+            const PerspectiveCamera& GetCamera() const {
+                return m_Camera;
+            }
+
         private:
             void UpdateRotation(const glm::vec2& mouseDelta);
             void UpdateTranslation(Timestep deltaTime);
