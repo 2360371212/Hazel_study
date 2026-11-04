@@ -12,15 +12,16 @@
 #include "Hazel/Core/Application.h"
 
 //Render
-#include "Hazel/Renderer/Buffer.h"
-#include "Hazel/Renderer/VertexArray.h"
-#include "Hazel/Renderer/Shader.h"
+#include "Hazel/Renderer/Common/Buffer.h"
+#include "Hazel/Renderer/Common/VertexArray.h"
+#include "Hazel/Renderer/Common/Shader.h"
+#include "Hazel/Renderer/Common/Texture.h"
+#include "Hazel/Renderer/Common/RenderCommand.h"
+#include "Hazel/Renderer/Common/RendererAPI.h"
 #include "Hazel/Renderer/Renderer.h"
 #include "Hazel/Renderer/Renderer2D.h"
-#include "Hazel/Renderer/RenderCommand.h"
-#include "Hazel/Renderer/RendererAPI.h"
 #include "Hazel/Camera/OrthographicCameraController.h"
-#include "Hazel/Renderer/Texture.h"
+#include "Hazel/Camera/FlyCameraController.h"
 
 #include "Hazel/Core/Timestep.h"
 

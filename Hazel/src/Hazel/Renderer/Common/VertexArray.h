@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 #include "Hazel/Core/Core.h"
-#include "Hazel/Renderer/Buffer.h"
+#include "Hazel/Renderer/common/Buffer.h"
 
 namespace Hazel{
     class VertexArray{
