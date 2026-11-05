@@ -30,7 +30,6 @@ compile_commands.json
 *.user
 
 # Compiler and linker outputs
-*.obj
 *.o
 *.pch
 *.pdb

@@ -23,9 +23,11 @@ private:
 private:
     Hazel::FlyCameraController m_CameraController;
 
-    Hazel::Ref<Hazel::Mesh> m_Cube;
-    Hazel::Ref<Hazel::Shader> m_CubeShader;
+    Hazel::Ref<Hazel::Mesh> m_Model;
+    Hazel::Ref<Hazel::Shader> m_ModelShader;
 
     Hazel::Ref<Hazel::VertexArray> m_BoundsVertexArray;
     Hazel::Ref<Hazel::Shader> m_BoundsShader;
+
+    glm::mat4 m_ModelTransform{ 1.0f };
 };
