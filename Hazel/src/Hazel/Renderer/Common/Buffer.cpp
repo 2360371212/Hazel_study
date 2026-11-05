@@ -34,6 +34,17 @@ namespace Hazel{
 		return nullptr;
 	}
 
+    template<typename T>
+    Ref<VertexBuffer> VertexBuffer::Create(const std::vector<T>& vertices){
+        switch (Renderer::GetAPI())
+		{
+			case RendererAPI::API::None:    HZ_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;
+			case RendererAPI::API::OpenGL:  return CreateRef<OpenGLVertexBuffer>(vertices.data()), static_cast<uint32_t>(vertices.size() * sizeof(T));
+		}
+		HZ_CORE_ASSERT(false, "Unknown RendererAPI!");
+		return nullptr;
+    }
+
     Ref<IndexBuffer> IndexBuffer::Create(uint32_t* indices, uint32_t count){
         switch (Renderer::GetAPI())
         {
