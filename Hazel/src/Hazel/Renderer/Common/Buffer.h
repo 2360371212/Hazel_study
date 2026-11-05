@@ -117,6 +117,12 @@ namespace Hazel{
             virtual void SetData(const void* data, uint32_t size) = 0;
     }; 
 
+    template<typename T>
+    Ref<VertexBuffer> VertexBuffer::Create(const std::vector<T>& vertices){
+        return VertexBuffer::Create(static_cast<const void*>(vertices.data()), static_cast<uint32_t>(vertices.size() * sizeof(T)));
+    }
+
+
     class IndexBuffer{
         public:
             virtual ~IndexBuffer(){};

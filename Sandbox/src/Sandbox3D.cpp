@@ -1,8 +1,59 @@
 #include "Sandbox3D.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <limits>
+
 
 #include <glm/gtc/matrix_transform.hpp>
+
+namespace
+{
+    Hazel::AABB TransformAABB(
+        const Hazel::AABB& localBounds,
+        const glm::mat4& transform)
+    {
+        const glm::vec3 corners[8] = {
+            { localBounds.Min.x, localBounds.Min.y, localBounds.Min.z },
+            { localBounds.Max.x, localBounds.Min.y, localBounds.Min.z },
+            { localBounds.Max.x, localBounds.Max.y, localBounds.Min.z },
+            { localBounds.Min.x, localBounds.Max.y, localBounds.Min.z },
+
+            { localBounds.Min.x, localBounds.Min.y, localBounds.Max.z },
+            { localBounds.Max.x, localBounds.Min.y, localBounds.Max.z },
+            { localBounds.Max.x, localBounds.Max.y, localBounds.Max.z },
+            { localBounds.Min.x, localBounds.Max.y, localBounds.Max.z }
+        };
+
+        Hazel::AABB worldBounds;
+
+        worldBounds.Min =
+            glm::vec3(std::numeric_limits<float>::max());
+
+        worldBounds.Max =
+            glm::vec3(std::numeric_limits<float>::lowest());
+
+        for (const glm::vec3& corner : corners)
+        {
+            const glm::vec3 worldPosition =
+                glm::vec3(
+                    transform *
+                    glm::vec4(corner, 1.0f));
+
+            worldBounds.Min =
+                glm::min(
+                    worldBounds.Min,
+                    worldPosition);
+
+            worldBounds.Max =
+                glm::max(
+                    worldBounds.Max,
+                    worldPosition);
+        }
+
+        return worldBounds;
+    }
+}
 
 Sandbox3D::Sandbox3D()
     : Hazel::Layer("Sandbox3D"),
@@ -16,109 +67,168 @@ Sandbox3D::Sandbox3D()
 
 void Sandbox3D::OnAttach()
 {
-    // ---------------------------------------------------------
-    // 1. 设置初始相机
-    // ---------------------------------------------------------
-    auto& camera = m_CameraController.GetCamera();
+    auto& camera =
+        m_CameraController.GetCamera();
 
-    camera.SetPosition({ 0.0f, 0.0f, 5.0f });
-    camera.SetRotation({ 0.0f, 0.0f, 0.0f });
-
-    auto& window = Hazel::Application::Get().GetWindow();
-
-    camera.SetViewportSize(
-        window.GetWidth(),
-        window.GetHeight());
-
-    // ---------------------------------------------------------
-    // 2. 创建立方体顶点
-    // 每个顶点：Position.xyz + Color.rgb
-    // ---------------------------------------------------------
-    float vertices[] = {
-        // Position                // Color
-        -0.5f, -0.5f, -0.5f,       0.2f, 0.2f, 0.8f, // 0
-         0.5f, -0.5f, -0.5f,       0.8f, 0.2f, 0.2f, // 1
-         0.5f,  0.5f, -0.5f,       0.8f, 0.8f, 0.2f, // 2
-        -0.5f,  0.5f, -0.5f,       0.2f, 0.8f, 0.2f, // 3
-
-        -0.5f, -0.5f,  0.5f,       0.2f, 0.8f, 0.8f, // 4
-         0.5f, -0.5f,  0.5f,       0.8f, 0.2f, 0.8f, // 5
-         0.5f,  0.5f,  0.5f,       1.0f, 1.0f, 1.0f, // 6
-        -0.5f,  0.5f,  0.5f,       0.4f, 0.8f, 0.4f  // 7
-    };
-
-    // 六个面，每个面两个三角形。
-    // 从立方体外部观察，各面的绕序均为逆时针。
-    uint32_t indices[] = {
-        // 后面 -Z
-        0, 2, 1,
-        2, 0, 3,
-
-        // 前面 +Z
-        4, 5, 6,
-        6, 7, 4,
-
-        // 左面 -X
-        0, 4, 7,
-        7, 3, 0,
-
-        // 右面 +X
-        1, 2, 6,
-        6, 5, 1,
-
-        // 下面 -Y
-        0, 1, 5,
-        5, 4, 0,
-
-        // 上面 +Y
-        3, 7, 6,
-        6, 2, 3
-    };
-
-    // ---------------------------------------------------------
-    // 3. 创建 VAO / VBO / IBO
-    // ---------------------------------------------------------
-    m_CubeVertexArray = Hazel::VertexArray::Create();
-
-    auto vertexBuffer = Hazel::VertexBuffer::Create(
-        vertices,
-        static_cast<uint32_t>(sizeof(vertices)));
-
-    vertexBuffer->SetLayout({
-        { Hazel::ShaderDataType::Float3, "a_Position" },
-        { Hazel::ShaderDataType::Float3, "a_Color" }
+    camera.SetPosition({
+        0.0f,
+        0.0f,
+        5.0f
     });
 
-    m_CubeVertexArray->AddVertexBuffer(vertexBuffer);
+    camera.SetRotation({
+        0.0f,
+        0.0f,
+        0.0f
+    });
 
-    const uint32_t indexCount =
-        static_cast<uint32_t>(
-            sizeof(indices) / sizeof(indices[0]));
+    auto& window =
+        Hazel::Application::Get().GetWindow();
 
-    auto indexBuffer = Hazel::IndexBuffer::Create(
-        indices,
-        indexCount);
+    if (window.GetWidth() != 0 &&
+        window.GetHeight() != 0)
+    {
+        camera.SetViewportSize(
+            window.GetWidth(),
+            window.GetHeight());
+    }
 
-    m_CubeVertexArray->SetIndexBuffer(indexBuffer);
+    // 创建几何 Mesh。
+    m_Cube =
+        Hazel::PrimitiveMesh::CreateCube(1.0f);
 
-    // ---------------------------------------------------------
-    // 4. 创建 Shader
-    // ---------------------------------------------------------
-    const std::string vertexSource = R"(
+    // 创建普通立方体 Shader。
+    const std::string cubeVertexSource = R"(
         #version 330 core
 
         layout(location = 0) in vec3 a_Position;
-        layout(location = 1) in vec3 a_Color;
+        layout(location = 1) in vec3 a_Normal;
+        layout(location = 2) in vec2 a_TexCoord;
 
         uniform mat4 u_ViewProjection;
         uniform mat4 u_Transform;
 
-        out vec3 v_Color;
+        out vec3 v_Normal;
+        out vec2 v_TexCoord;
 
         void main()
         {
-            v_Color = a_Color;
+            v_Normal = a_Normal;
+            v_TexCoord = a_TexCoord;
 
+            gl_Position =
+                u_ViewProjection *
+                u_Transform *
+                vec4(a_Position, 1.0);
+        }
+    )";
+
+    const std::string cubeFragmentSource = R"(
+        #version 330 core
+
+        layout(location = 0) out vec4 o_Color;
+
+        in vec3 v_Normal;
+        in vec2 v_TexCoord;
+
+        uniform vec4 u_Tint;
+
+        void main()
+        {
+            o_Color = u_Tint;
+        }
+    )";
+
+    m_CubeShader =
+        Hazel::Shader::Create(
+            "Sandbox3D_Cube",
+            cubeVertexSource,
+            cubeFragmentSource);
+
+    CreateBoundsDebugGeometry();
+}
+
+void Sandbox3D::CreateBoundsDebugGeometry()
+{
+    // 单位立方体。
+    // 实际包围盒的位置和大小通过 u_Transform 控制。
+    float vertices[] = {
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+        -0.5f,  0.5f, -0.5f,
+
+        -0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f
+    };
+
+    uint32_t indices[] = {
+        // 后面
+        0, 1, 2,
+        2, 3, 0,
+
+        // 前面
+        4, 5, 6,
+        6, 7, 4,
+
+        // 左面
+        0, 4, 7,
+        7, 3, 0,
+
+        // 右面
+        1, 2, 6,
+        6, 5, 1,
+
+        // 底面
+        0, 1, 5,
+        5, 4, 0,
+
+        // 顶面
+        3, 7, 6,
+        6, 2, 3
+    };
+
+    m_BoundsVertexArray =
+        Hazel::VertexArray::Create();
+
+    auto vertexBuffer =
+        Hazel::VertexBuffer::Create(
+            vertices,
+            static_cast<uint32_t>(
+                sizeof(vertices)));
+
+    vertexBuffer->SetLayout({
+        {
+            Hazel::ShaderDataType::Float3,
+            "a_Position"
+        }
+    });
+
+    m_BoundsVertexArray->AddVertexBuffer(
+        vertexBuffer);
+
+    auto indexBuffer =
+        Hazel::IndexBuffer::Create(
+            indices,
+            static_cast<uint32_t>(
+                sizeof(indices) /
+                sizeof(indices[0])));
+
+    m_BoundsVertexArray->SetIndexBuffer(
+        indexBuffer);
+
+    const std::string vertexSource = R"(
+        #version 330 core
+
+        layout(location = 0) in vec3 a_Position;
+
+        uniform mat4 u_ViewProjection;
+        uniform mat4 u_Transform;
+
+        void main()
+        {
             gl_Position =
                 u_ViewProjection *
                 u_Transform *
@@ -131,79 +241,185 @@ void Sandbox3D::OnAttach()
 
         layout(location = 0) out vec4 o_Color;
 
-        in vec3 v_Color;
-
-        uniform vec4 u_Tint;
+        uniform vec4 u_Color;
 
         void main()
         {
-            o_Color = vec4(v_Color, 1.0) * u_Tint;
+            o_Color = u_Color;
         }
     )";
 
-    m_CubeShader = Hazel::Shader::Create(
-        "Sandbox3D_Cube",
-        vertexSource,
-        fragmentSource);
+    m_BoundsShader =
+        Hazel::Shader::Create(
+            "AABBDebugShader",
+            vertexSource,
+            fragmentSource);
+}
+
+void Sandbox3D::DrawBounds(
+    const Hazel::AABB& localBounds,
+    const glm::mat4& transform)
+{
+    const Hazel::AABB worldBounds =
+        TransformAABB(
+            localBounds,
+            transform);
+
+    const glm::vec3 center =
+        (worldBounds.Min +
+         worldBounds.Max) *
+        0.5f;
+
+    const glm::vec3 size =
+        worldBounds.Max -
+        worldBounds.Min;
+
+    if (glm::dot(size, size) <= 0.000001f)
+        return;
+
+    const glm::mat4 boundsTransform =
+        glm::translate(
+            glm::mat4(1.0f),
+            center) *
+        glm::scale(
+            glm::mat4(1.0f),
+            size);
+
+    auto& camera =
+        m_CameraController.GetCamera();
+
+    m_BoundsShader->Bind();
+
+    m_BoundsShader->SetMat4(
+        "u_ViewProjection",
+        camera.GetViewProjectionMatrix());
+
+    m_BoundsShader->SetMat4(
+        "u_Transform",
+        boundsTransform);
+
+    m_BoundsShader->SetFloat4(
+        "u_Color",
+        glm::vec4(
+            1.0f,
+            0.05f,
+            0.02f,
+            1.0f));
+
+    m_BoundsVertexArray->Bind();
+
+    // 调试阶段关闭深度测试，
+    // 让包围盒始终显示在物体外面。
+    // glDisable(GL_DEPTH_TEST);
+
+    // glPolygonMode(
+    //     GL_FRONT_AND_BACK,
+    //     GL_LINE);
+
+    // glLineWidth(2.0f);
+
+    // Hazel::RenderCommand::DrawIndexed(
+    //     m_BoundsVertexArray,
+    //     36);
+
+    // // 恢复默认 OpenGL 状态。
+    // glPolygonMode(
+    //     GL_FRONT_AND_BACK,
+    //     GL_FILL);
+
+    // glEnable(GL_DEPTH_TEST);
 }
 
 void Sandbox3D::OnDetach()
 {
+    m_BoundsShader.reset();
+    m_BoundsVertexArray.reset();
+
     m_CubeShader.reset();
-    m_CubeVertexArray.reset();
+    m_Cube.reset();
 }
 
-void Sandbox3D::OnUpdate(Hazel::Timestep timestep)
+void Sandbox3D::OnUpdate(
+    Hazel::Timestep timestep)
 {
-    // ---------------------------------------------------------
-    // 1. 更新相机
-    // ---------------------------------------------------------
-    m_CameraController.OnUpdate(timestep);
+    m_CameraController.OnUpdate(
+        timestep);
 
-    // ---------------------------------------------------------
-    // 2. 清屏
-    // 你的 OpenGLRendererAPI 已启用深度测试，
-    // Clear() 也会清除颜色和深度缓冲。
-    // ---------------------------------------------------------
     Hazel::RenderCommand::SetClearColor({
-        0.08f, 0.09f, 0.12f, 1.0f
+        0.08f,
+        0.09f,
+        0.12f,
+        1.0f
     });
 
     Hazel::RenderCommand::Clear();
 
-    // ---------------------------------------------------------
-    // 3. 上传本次视图共用的数据
-    // ---------------------------------------------------------
-    auto& camera = m_CameraController.GetCamera();
+    auto& camera =
+        m_CameraController.GetCamera();
 
-    m_CubeShader->Bind();
-
-    m_CubeShader->SetMat4(
-        "u_ViewProjection",
-        camera.GetViewProjectionMatrix());
-
-    m_CubeVertexArray->Bind();
-
-    // ---------------------------------------------------------
-    // 4. 同一份几何，使用不同的 Transform 绘制三个实例
-    // ---------------------------------------------------------
     const glm::vec3 positions[] = {
         { -1.3f, 0.0f,  0.0f },
         {  0.0f, 0.0f, -1.5f },
         {  1.3f, 0.0f,  0.0f }
     };
 
-    const glm::vec4 tints[] = {
-        { 1.0f, 0.7f, 0.7f, 1.0f },
-        { 0.7f, 1.0f, 0.7f, 1.0f },
-        { 0.7f, 0.7f, 1.0f, 1.0f }
+    const glm::vec4 colors[] = {
+        { 1.0f, 0.35f, 0.35f, 1.0f },
+        { 0.35f, 1.0f, 0.35f, 1.0f },
+        { 0.35f, 0.35f, 1.0f, 1.0f }
     };
+
+    static float rotation = 0.0f;
+
+    rotation +=
+        static_cast<float>(timestep) *
+        glm::radians(25.0f);
 
     for (uint32_t i = 0; i < 3; ++i)
     {
-        const glm::mat4 transform =
-            glm::translate(glm::mat4(1.0f), positions[i]) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(0.8f));
+        glm::mat4 transform =
+            glm::translate(
+                glm::mat4(1.0f),
+                positions[i]);
+
+        if (i == 1)
+        {
+            transform =
+                transform *
+                glm::rotate(
+                    glm::mat4(1.0f),
+                    rotation,
+                    glm::vec3(
+                        0.0f,
+                        1.0f,
+                        0.0f));
+        }
+
+        if (i == 2)
+        {
+            transform =
+                transform *
+                glm::rotate(
+                    glm::mat4(1.0f),
+                    rotation,
+                    glm::vec3(
+                        1.0f,
+                        1.0f,
+                        0.0f));
+        }
+
+        transform =
+            transform *
+            glm::scale(
+                glm::mat4(1.0f),
+                glm::vec3(0.8f));
+
+        // 绘制正常 Mesh。
+        m_CubeShader->Bind();
+
+        m_CubeShader->SetMat4(
+            "u_ViewProjection",
+            camera.GetViewProjectionMatrix());
 
         m_CubeShader->SetMat4(
             "u_Transform",
@@ -211,15 +427,27 @@ void Sandbox3D::OnUpdate(Hazel::Timestep timestep)
 
         m_CubeShader->SetFloat4(
             "u_Tint",
-            tints[i]);
+            colors[i]);
+
+        const auto& vertexArray =
+            m_Cube->GetVertexArray();
+
+        vertexArray->Bind();
 
         Hazel::RenderCommand::DrawIndexed(
-            m_CubeVertexArray,
-            36);
+            vertexArray,
+            m_Cube->GetIndexCount());
+
+        // 绘制该物体的世界空间 AABB。
+        DrawBounds(
+            m_Cube->GetBounds(),
+            transform);
     }
 }
 
-void Sandbox3D::OnEvent(Hazel::Event& event)
+void Sandbox3D::OnEvent(
+    Hazel::Event& event)
 {
-    m_CameraController.OnEvent(event);
+    m_CameraController.OnEvent(
+        event);
 }

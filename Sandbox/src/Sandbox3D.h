@@ -14,7 +14,18 @@ public:
     void OnEvent(Hazel::Event& event) override;
 
 private:
+    void CreateBoundsDebugGeometry();
+
+    void DrawBounds(
+        const Hazel::AABB& localBounds,
+        const glm::mat4& transform);
+
+private:
     Hazel::FlyCameraController m_CameraController;
-    Hazel::Ref<Hazel::VertexArray> m_CubeVertexArray;
+
+    Hazel::Ref<Hazel::Mesh> m_Cube;
     Hazel::Ref<Hazel::Shader> m_CubeShader;
+
+    Hazel::Ref<Hazel::VertexArray> m_BoundsVertexArray;
+    Hazel::Ref<Hazel::Shader> m_BoundsShader;
 };

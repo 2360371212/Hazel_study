@@ -55,14 +55,14 @@ namespace Hazel
         m_VertexArray->AddVertexBuffer(vertexBuffer);
         m_VertexArray->SetIndexBuffer(indexBuffer);
 
-        // // 如果调用方没有预先设置包围盒，则自动计算。
-        // if (data.Bounds.Min == glm::vec3(0.0f) && data.Bounds.Max == glm::vec3(0.0f))
-        // {
-        //     m_Bounds = CalculateBounds(data.Vertices);
-        // }
-        // else
-        // {
-        //     m_Bounds = data.Bounds;
-        // }
+        // 如果调用方没有预先设置包围盒，则自动计算。
+        if (data.Bounds.Min == glm::vec3(0.0f) && data.Bounds.Max == glm::vec3(0.0f))
+        {
+            m_Bounds = CalculateBounds(data.Vertices);
+        }
+        else
+        {
+            m_Bounds = data.Bounds;
+        }
     }
 }

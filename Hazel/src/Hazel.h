@@ -11,6 +11,7 @@
 // For use by Hazel applications
 #include "Hazel/Core/Application.h"
 
+
 //Render
 #include "Hazel/Renderer/Common/Buffer.h"
 #include "Hazel/Renderer/Common/VertexArray.h"
@@ -22,6 +23,9 @@
 #include "Hazel/Renderer/Renderer2D.h"
 #include "Hazel/Camera/OrthographicCameraController.h"
 #include "Hazel/Camera/FlyCameraController.h"
+#include "Hazel/Renderer/Geometry/Mesh.h"
+#include "Hazel/Renderer/Geometry/MeshTypes.h"
+#include "Hazel/Renderer/Geometry/PrimitiveMesh.h"
 
 #include "Hazel/Core/Timestep.h"
 
