@@ -41,7 +41,7 @@ namespace Hazel
 
         float Range = 10.0f;
 
-        // 角度
+        // 输入端保证：0 <= InnerConeAngle <= OuterConeAngle < 90。
         float InnerConeAngle = 0.f;
         float OuterConeAngle = 45.f;
     };
