@@ -1,5 +1,5 @@
 #pragma once
-#include "Hazel/Renderer/Shader.h"
+#include "Hazel/Renderer/Common/Shader.h"
 #include <glm/glm.hpp>
 
 // TODO: Remove this once we have a proper OpenGL abstraction layer

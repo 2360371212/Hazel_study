@@ -108,10 +108,20 @@ namespace Hazel{
 
             static Ref<VertexBuffer> Create(uint32_t size);
             static Ref<VertexBuffer> Create(float* vertices, uint32_t size);
+            static Ref<VertexBuffer> Create(const void* data, uint32_t size);
+
+            template<typename T>
+            static Ref<VertexBuffer> Create(const std::vector<T>& vertices);
 
             // 数据上传GPU
             virtual void SetData(const void* data, uint32_t size) = 0;
     }; 
+
+    template<typename T>
+    Ref<VertexBuffer> VertexBuffer::Create(const std::vector<T>& vertices){
+        return VertexBuffer::Create(static_cast<const void*>(vertices.data()), static_cast<uint32_t>(vertices.size() * sizeof(T)));
+    }
+
 
     class IndexBuffer{
         public:

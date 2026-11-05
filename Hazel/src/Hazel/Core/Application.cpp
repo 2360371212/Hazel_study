@@ -1,7 +1,7 @@
 #include "hzpch.h"
 #include "Application.h"
 #include "Hazel/Core/Log.h"
-#include "Input.h"
+#include "Hazel/Input/Input.h"
 #include "Hazel/Renderer/Renderer.h"
 #include "glm/glm.hpp"
 #include "GLFW/glfw3.h"

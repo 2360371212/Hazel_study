@@ -1,8 +1,8 @@
 #pragma once
-#include "RenderCommand.h"
-#include "VertexArray.h"
-#include "OrthographicCamera.h"
-#include "Shader.h"
+#include "Hazel/Renderer/Common/RenderCommand.h"
+#include "Hazel/Renderer/Common/VertexArray.h"
+#include "Hazel/Renderer/Common/Shader.h"
+#include "Hazel/Camera/OrthographicCamera.h"
 #include "glm/glm.hpp"
 
 

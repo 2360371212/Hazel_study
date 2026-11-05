@@ -2,10 +2,10 @@
 
 #include "imgui.h"
 #include "glm/gtc/matrix_transform.hpp"
-#include "Platform/OpenGL/OpenGLShader.h"
+#include "Hazel/Core/EntryPoint.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "Sandbox2D.h"
-#include "Hazel/Core/EntryPoint.h"
+#include "Sandbox3D.h"
 
 // class ExampleLayer : public Hazel::Layer{
 //     public:
@@ -216,7 +216,7 @@
 class Sandbox : public Hazel::Application {
     public:
         Sandbox() {
-            PushLayer(new Sandbox2D());
+            PushLayer(new Sandbox3D());
         }
 
         ~Sandbox() {

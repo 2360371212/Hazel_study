@@ -1,5 +1,5 @@
 #pragma once
-#include "Hazel/Renderer/Texture.h"
+#include "Hazel/Renderer/Common/Texture.h"
 #include <glad/glad.h>
 
 namespace Hazel{

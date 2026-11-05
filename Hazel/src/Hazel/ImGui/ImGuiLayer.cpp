@@ -7,7 +7,7 @@
 #include "backends/imgui_impl_glfw.h"
 
 #include "Hazel/Core/Application.h"
-#include "Hazel/Core/KeyCodes.h"
+#include "Hazel/Input/KeyCodes.h"
 
 
 #include "GLFW/glfw3.h"
