@@ -1,22 +1,134 @@
 #include "Sandbox3D.h"
+#include "Hazel/Events/ApplicationEvent.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <fstream>
-#include <limits>
+#include <functional>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-// #include <glad/glad.h>
-
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/constants.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <glad/glad.h>
+#include <imgui.h>
 
 namespace
 {
+    // All generated texels contain linear RGB values. Row zero is the
+    // bottom of the panorama, matching texture UVs without an image flip.
+    glm::vec3 PanoramaDirection(float u, float v)
+    {
+        const float azimuth = (u - 0.5f) * glm::two_pi<float>();
+        const float elevation = (v - 0.5f) * glm::pi<float>();
+        const float radius = std::cos(elevation);
+
+        return {
+            radius * std::cos(azimuth),
+            std::sin(elevation),
+            radius * std::sin(azimuth)
+        };
+    }
+
+    glm::vec3 SampleDefaultEnvironment(const glm::vec3& direction)
+    {
+        const glm::vec3 horizon{ 0.65f, 0.72f, 0.8f };
+        const glm::vec3 zenith{ 0.08f, 0.24f, 0.55f };
+        const glm::vec3 ground{ 0.12f, 0.10f, 0.08f };
+
+        glm::vec3 color = direction.y >= 0.0f
+            ? glm::mix(horizon, zenith, std::sqrt(direction.y))
+            : glm::mix(horizon, ground, std::sqrt(-direction.y));
+
+        const glm::vec3 sunDirection =
+            glm::normalize(glm::vec3(0.4f, 0.8f, 0.5f));
+
+        const float sun = std::pow(
+            std::max(glm::dot(direction, sunDirection), 0.0f),
+            512.0f);
+
+        return color + glm::vec3(0.65f, 0.5f, 0.3f) * sun;
+    }
+
+    glm::vec3 DiffuseEnvironment(const glm::vec3& normal)
+    {
+        const glm::vec3 up = std::abs(normal.y) < 0.999f
+            ? glm::vec3(0.0f, 1.0f, 0.0f)
+            : glm::vec3(1.0f, 0.0f, 0.0f);
+
+        const glm::vec3 tangent =
+            glm::normalize(glm::cross(up, normal));
+        const glm::vec3 bitangent = glm::cross(normal, tangent);
+
+        constexpr uint32_t sampleCount = 256;
+        glm::vec3 average{ 0.0f };
+
+        // Cosine-weighted hemisphere sampling estimates irradiance / pi.
+        // This work runs once during environment creation, not per frame.
+        for (uint32_t i = 0; i < sampleCount; ++i)
+        {
+            const float xi = (i + 0.5f) / sampleCount;
+            const float phi = glm::two_pi<float>() *
+                glm::fract(i * 0.61803398875f);
+            const float radius = std::sqrt(xi);
+
+            const glm::vec3 direction =
+                tangent * (radius * std::cos(phi)) +
+                bitangent * (radius * std::sin(phi)) +
+                normal * std::sqrt(1.0f - xi);
+
+            average += SampleDefaultEnvironment(direction);
+        }
+
+        return average / static_cast<float>(sampleCount);
+    }
+
+    Hazel::Ref<Hazel::Texture2D> CreateEnvironmentTexture(
+        uint32_t width, uint32_t height, bool diffuse)
+    {
+        std::vector<uint8_t> pixels(width * height * 4);
+
+        for (uint32_t y = 0; y < height; ++y)
+        {
+            for (uint32_t x = 0; x < width; ++x)
+            {
+                const glm::vec3 direction = PanoramaDirection(
+                    (x + 0.5f) / width,
+                    (y + 0.5f) / height);
+
+                const glm::vec3 color = diffuse
+                    ? DiffuseEnvironment(direction)
+                    : SampleDefaultEnvironment(direction);
+
+                const uint32_t offset = (y * width + x) * 4;
+
+                // Quantize to the current Texture2D RGBA8 storage format.
+                for (uint32_t channel = 0; channel < 3; ++channel)
+                {
+                    pixels[offset + channel] = static_cast<uint8_t>(
+                        glm::clamp(color[channel], 0.0f, 1.0f) *
+                        255.0f + 0.5f);
+                }
+
+                pixels[offset + 3] = 255;
+            }
+        }
+
+        auto texture = Hazel::Texture2D::Create(width, height);
+        texture->SetData(
+            pixels.data(), static_cast<uint32_t>(pixels.size()));
+        return texture;
+    }
+
     struct ObjVertexKey
     {
         int Position = 0;
@@ -123,6 +235,8 @@ namespace
             return false;
         }
 
+        meshData = {};
+
         std::vector<glm::vec3> positions;
         std::vector<glm::vec2> texCoords;
         std::vector<glm::vec3> normals;
@@ -133,7 +247,7 @@ namespace
             ObjVertexKeyHash>
             vertexCache;
 
-        bool hasExplicitNormals = false;
+        std::vector<bool> needsGeneratedNormal;
 
         std::string line;
         uint32_t lineNumber = 0;
@@ -196,16 +310,43 @@ namespace
 
                 while (stream >> token)
                 {
-                    ObjVertexKey key;
+                    if (token[0] == '#')
+                        break;
+
+                    ObjVertexKey rawKey;
 
                     if (!ParseOBJVertexToken(
                             token,
-                            key))
+                            rawKey))
                     {
                         HZ_CORE_ERROR(
                             "Invalid OBJ face at line {}",
                             lineNumber);
 
+                        return false;
+                    }
+
+                    // Resolve relative indices before caching: the same -1
+                    // token can refer to different vertices later in a file.
+                    const ObjVertexKey key{
+                        ResolveOBJIndex(rawKey.Position, positions.size()),
+                        ResolveOBJIndex(rawKey.TexCoord, texCoords.size()),
+                        ResolveOBJIndex(rawKey.Normal, normals.size())
+                    };
+
+                    if (rawKey.Position == 0 ||
+                        key.Position < 0 ||
+                        key.Position >= static_cast<int>(positions.size()) ||
+                        (rawKey.TexCoord != 0 &&
+                            (key.TexCoord < 0 ||
+                             key.TexCoord >= static_cast<int>(texCoords.size()))) ||
+                        (rawKey.Normal != 0 &&
+                            (key.Normal < 0 ||
+                             key.Normal >= static_cast<int>(normals.size()))))
+                    {
+                        HZ_CORE_ERROR(
+                            "OBJ index out of range at line {}",
+                            lineNumber);
                         return false;
                     }
 
@@ -220,68 +361,20 @@ namespace
                         continue;
                     }
 
-                    const int positionIndex =
-                        ResolveOBJIndex(
-                            key.Position,
-                            positions.size());
-
-                    if (positionIndex < 0 ||
-                        positionIndex >=
-                        static_cast<int>(
-                            positions.size()))
-                    {
-                        HZ_CORE_ERROR(
-                            "OBJ position index out of range at line {}",
-                            lineNumber);
-
-                        return false;
-                    }
-
                     Hazel::MeshVertex vertex;
 
-                    vertex.Position =
-                        positions[positionIndex];
+                    vertex.Position = positions[key.Position];
+                    vertex.Normal = glm::vec3(0.0f);
 
-                    if (key.TexCoord != 0)
+                    if (key.TexCoord >= 0)
                     {
-                        const int texCoordIndex =
-                            ResolveOBJIndex(
-                                key.TexCoord,
-                                texCoords.size());
-
-                        if (texCoordIndex >= 0 &&
-                            texCoordIndex <
-                            static_cast<int>(
-                                texCoords.size()))
-                        {
-                            vertex.TexCoord =
-                                texCoords[texCoordIndex];
-
-                            // OpenGL UV 通常将 V 轴翻转。
-                            vertex.TexCoord.y =
-                                1.0f -
-                                vertex.TexCoord.y;
-                        }
+                        // Texture loading already flips image rows.
+                        // Preserve the OBJ UVs to avoid a second V flip.
+                        vertex.TexCoord = texCoords[key.TexCoord];
                     }
 
-                    if (key.Normal != 0)
-                    {
-                        const int normalIndex =
-                            ResolveOBJIndex(
-                                key.Normal,
-                                normals.size());
-
-                        if (normalIndex >= 0 &&
-                            normalIndex <
-                            static_cast<int>(
-                                normals.size()))
-                        {
-                            vertex.Normal =
-                                normals[normalIndex];
-
-                            hasExplicitNormals = true;
-                        }
-                    }
+                    if (key.Normal >= 0)
+                        vertex.Normal = normals[key.Normal];
 
                     const uint32_t vertexIndex =
                         static_cast<uint32_t>(
@@ -289,6 +382,7 @@ namespace
 
                     meshData.Vertices.push_back(
                         vertex);
+                    needsGeneratedNormal.push_back(key.Normal < 0);
 
                     vertexCache.emplace(
                         key,
@@ -298,7 +392,15 @@ namespace
                         vertexIndex);
                 }
 
-                // 将 OBJ 多边形面转换为三角形。
+                if (faceIndices.size() < 3)
+                {
+                    HZ_CORE_ERROR(
+                        "OBJ face has fewer than three vertices at line {}",
+                        lineNumber);
+                    return false;
+                }
+
+                // Fan triangulation supports convex polygon faces.
                 for (size_t index = 1;
                      index + 1 < faceIndices.size();
                      ++index)
@@ -325,8 +427,10 @@ namespace
             return false;
         }
 
-        // OBJ 没有法线时，根据三角形计算法线。
-        if (!hasExplicitNormals)
+        // Accumulate area-weighted normals only for vertices without normals.
+        if (std::find(needsGeneratedNormal.begin(),
+                      needsGeneratedNormal.end(), true) !=
+            needsGeneratedNormal.end())
         {
             for (size_t index = 0;
                  index + 2 < meshData.Indices.size();
@@ -349,9 +453,12 @@ namespace
                         b.Position - a.Position,
                         c.Position - a.Position);
 
-                a.Normal += normal;
-                b.Normal += normal;
-                c.Normal += normal;
+                if (needsGeneratedNormal[meshData.Indices[index + 0]])
+                    a.Normal += normal;
+                if (needsGeneratedNormal[meshData.Indices[index + 1]])
+                    b.Normal += normal;
+                if (needsGeneratedNormal[meshData.Indices[index + 2]])
+                    c.Normal += normal;
             }
 
             for (Hazel::MeshVertex& vertex :
@@ -382,86 +489,6 @@ namespace
         return true;
     }
 
-    Hazel::AABB TransformAABB(
-        const Hazel::AABB& localBounds,
-        const glm::mat4& transform)
-    {
-        const glm::vec3 corners[8] = {
-            {
-                localBounds.Min.x,
-                localBounds.Min.y,
-                localBounds.Min.z
-            },
-            {
-                localBounds.Max.x,
-                localBounds.Min.y,
-                localBounds.Min.z
-            },
-            {
-                localBounds.Max.x,
-                localBounds.Max.y,
-                localBounds.Min.z
-            },
-            {
-                localBounds.Min.x,
-                localBounds.Max.y,
-                localBounds.Min.z
-            },
-            {
-                localBounds.Min.x,
-                localBounds.Min.y,
-                localBounds.Max.z
-            },
-            {
-                localBounds.Max.x,
-                localBounds.Min.y,
-                localBounds.Max.z
-            },
-            {
-                localBounds.Max.x,
-                localBounds.Max.y,
-                localBounds.Max.z
-            },
-            {
-                localBounds.Min.x,
-                localBounds.Max.y,
-                localBounds.Max.z
-            }
-        };
-
-        Hazel::AABB worldBounds;
-
-        worldBounds.Min =
-            glm::vec3(
-                std::numeric_limits<float>::max());
-
-        worldBounds.Max =
-            glm::vec3(
-                std::numeric_limits<float>::lowest());
-
-        for (const glm::vec3& corner :
-             corners)
-        {
-            const glm::vec3 worldPosition =
-                glm::vec3(
-                    transform *
-                    glm::vec4(
-                        corner,
-                        1.0f));
-
-            worldBounds.Min =
-                glm::min(
-                    worldBounds.Min,
-                    worldPosition);
-
-            worldBounds.Max =
-                glm::max(
-                    worldBounds.Max,
-                    worldPosition);
-        }
-
-        return worldBounds;
-    }
 }
 
 Sandbox3D::Sandbox3D()
@@ -476,380 +503,327 @@ Sandbox3D::Sandbox3D()
 
 void Sandbox3D::OnAttach()
 {
-    auto& camera =
-        m_CameraController.GetCamera();
+    auto& camera = m_CameraController.GetCamera();
 
-    camera.SetPosition({
-        0.0f,
-        0.0f,
-        5.0f
-    });
+    camera.SetPosition({ 0.0f, 0.0f, 5.0f });
+    camera.SetRotation({ 0.0f, 0.0f, 0.0f });
 
-    camera.SetRotation({
-        0.0f,
-        0.0f,
-        0.0f
-    });
-
-    auto& window =
+    const auto& window =
         Hazel::Application::Get().GetWindow();
 
-    if (window.GetWidth() != 0 &&
-        window.GetHeight() != 0)
+    if (window.GetWidth() > 0 &&
+        window.GetHeight() > 0)
     {
         camera.SetViewportSize(
             window.GetWidth(),
             window.GetHeight());
     }
 
-    const std::filesystem::path modelPath =
-        "D:/Project/cpp/Hazel/Sandbox/assets/model/Intergalactic_Spaceship-(Wavefront).obj";
+    // 当前先沿用你已有的模型路径。
+    // Shader 与模型共用同一个 assets 根目录。
+    const std::filesystem::path assetsRoot =
+        "D:/Project/cpp/Hazel/Sandbox/assets";
 
+    const auto modelPath =
+        assetsRoot /
+        "model/Intergalactic_Spaceship-(Wavefront).obj";
+
+    const auto shaderPath =
+        assetsRoot /
+        "shaders/Sandbox3D_BlinnPhong.glsl";
+
+    // 1. 加载几何。
     Hazel::MeshData modelData;
 
-    if (!LoadOBJ(
-            modelPath,
-            modelData))
-    {
-        HZ_CORE_ERROR(
-            "Failed to load model: {}",
-            modelPath.string());
-
+    if (!LoadOBJ(modelPath, modelData))
         return;
-    }
 
-    m_Model =
-        Hazel::Mesh::Create(modelData);
+    m_Model = Hazel::Mesh::Create(modelData);
 
-    if (!m_Model)
-    {
-        HZ_CORE_ERROR(
-            "Failed to create Mesh from OBJ: {}",
-            modelPath.string());
-
-        return;
-    }
-
-    const Hazel::AABB& bounds =
-        m_Model->GetBounds();
+    // 2. 将模型居中，并将最长边缩放到 3 个单位。
+    const auto& bounds = m_Model->GetBounds();
 
     const glm::vec3 center =
-        (bounds.Min + bounds.Max) *
-        0.5f;
+        (bounds.Min + bounds.Max) * 0.5f;
 
     const glm::vec3 size =
         bounds.Max - bounds.Min;
 
     const float largestExtent =
-        std::max(
-            size.x,
-            std::max(size.y, size.z));
+        std::max(size.x, std::max(size.y, size.z));
 
-    const float scale =
-        largestExtent > 0.0001f
+    const float modelScale =
+        largestExtent > 0.0f
             ? 3.0f / largestExtent
             : 1.0f;
 
     m_ModelTransform =
         glm::scale(
             glm::mat4(1.0f),
-            glm::vec3(scale)) *
+            glm::vec3(modelScale)) *
         glm::translate(
             glm::mat4(1.0f),
             -center);
 
-    const std::string vertexSource = R"(
-        #version 330 core
+    // 模型变换当前固定，法线矩阵只计算一次。
+    m_NormalMatrix = glm::inverseTranspose(
+        glm::mat3(m_ModelTransform));
 
-        layout(location = 0) in vec3 a_Position;
-        layout(location = 1) in vec3 a_Normal;
-        layout(location = 2) in vec2 a_TexCoord;
-
-        uniform mat4 u_ViewProjection;
-        uniform mat4 u_Transform;
-
-        out vec3 v_Normal;
-
-        void main()
-        {
-            v_Normal = a_Normal;
-
-            gl_Position =
-                u_ViewProjection *
-                u_Transform *
-                vec4(a_Position, 1.0);
-        }
-    )";
-
-    const std::string fragmentSource = R"(
-        #version 330 core
-
-        layout(location = 0) out vec4 o_Color;
-
-        in vec3 v_Normal;
-
-        uniform vec4 u_Tint;
-
-        void main()
-        {
-            vec3 normal =
-                normalize(v_Normal);
-
-            vec3 lightDirection =
-                normalize(vec3(0.4, 0.8, 0.5));
-
-            float diffuse =
-                max(
-                    dot(normal, lightDirection),
-                    0.0);
-
-            vec3 lighting =
-                vec3(0.25) +
-                diffuse * vec3(0.75);
-
-            o_Color =
-                vec4(
-                    u_Tint.rgb * lighting,
-                    u_Tint.a);
-        }
-    )";
-
+    // 3. 加载 Shader。
     m_ModelShader =
-        Hazel::Shader::Create(
-            "Sandbox3D_Model",
-            vertexSource,
-            fragmentSource);
+        Hazel::Shader::Create(shaderPath.string());
 
-    CreateBoundsDebugGeometry();
+    m_EnvironmentShader = Hazel::Shader::Create(
+        (assetsRoot / "shaders/Sandbox3D_Environment.glsl").string());
+    CreateEnvironment();
+
+    // 4. 创建共享材质和实例。
+    m_MaterialSystem =
+        std::make_unique<Hazel::MaterialSystem>();
+
+    auto baseMaterial =
+        m_MaterialSystem->CreateBlinnPhong(
+            m_ModelShader);
+
+    m_ModelMaterial =
+        Hazel::CreateRef<Hazel::MaterialInstance>(
+            baseMaterial);
+
+    m_ModelMaterial->Set(
+        "u_Material.BaseColor",
+        glm::vec4(0.65f, 0.72f, 0.86f, 1.0f));
+
+    m_ModelMaterial->Set(
+        "u_Material.SpecularStrength",
+        0.35f);
+
+    m_ModelMaterial->Set(
+        "u_Material.Shininess",
+        64.0f);
+
+    // 没有设置贴图覆盖时，
+    // MaterialSystem 中的白色纹理会作为默认贴图。
+
+    // 5. 配置灯光。
+    m_Lighting = {};
+
+    m_Lighting.Ambient.Color =
+        glm::vec3(1.0f);
+
+    // A small constant fill complements the directional environment light.
+    m_Lighting.Ambient.Intensity = 0.04f;
+
+    Hazel::DirectionalLight sun;
+
+    sun.Direction = { -0.4f, -0.8f, -0.5f };
+    sun.Properties.Color = { 1.0f, 0.95f, 0.9f };
+    sun.Properties.Intensity = 0.8f;
+
+    m_Lighting.DirectionalLights.push_back(sun);
+
+    Hazel::PointLight fillLight;
+
+    fillLight.Position = { -2.0f, 1.0f, 2.0f };
+    fillLight.Range = 8.0f;
+
+    fillLight.Properties.Color =
+        { 0.35f, 0.55f, 1.0f };
+
+    fillLight.Properties.Intensity = 4.0f;
+
+    m_Lighting.PointLights.push_back(fillLight);
+
+    // 聚光灯先准备好，但默认关闭，
+    // 可以先观察方向光和点光源的效果。
+    Hazel::SpotLight spotLight;
+
+    spotLight.Position = { 2.0f, 2.0f, 3.0f };
+
+    // 模型已经居中，灯光朝向世界原点。
+    spotLight.Direction = -spotLight.Position;
+
+    spotLight.Range = 10.0f;
+
+    // 当前 LightingUploader 接收角度制。
+    spotLight.InnerConeAngle = 15.0f;
+    spotLight.OuterConeAngle = 25.0f;
+
+    spotLight.Properties.Color =
+        { 1.0f, 0.65f, 0.3f };
+
+    spotLight.Properties.Intensity = 10.0f;
+    spotLight.Properties.Enabled = false;
+
+    m_Lighting.SpotLights.push_back(spotLight);
 
     HZ_CORE_INFO(
-        "Loaded OBJ model: {} vertices, {} indices",
+        "Sandbox3D: loaded {} vertices, {} indices",
         m_Model->GetVertexCount(),
         m_Model->GetIndexCount());
 }
 
-void Sandbox3D::CreateBoundsDebugGeometry()
+void Sandbox3D::OnUpdate(Hazel::Timestep timestep)
 {
-    float vertices[] = {
-        -0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-        -0.5f,  0.5f, -0.5f,
+    const auto& io = ImGui::GetIO();
+    m_CameraController.SetEnabled(
+        !io.WantCaptureMouse && !io.WantCaptureKeyboard);
+    m_CameraController.OnUpdate(timestep);
 
-        -0.5f, -0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f
-    };
+    const auto& window =
+        Hazel::Application::Get().GetWindow();
 
-    uint32_t indices[] = {
-        0, 1, 2,
-        2, 3, 0,
+    const uint32_t width = window.GetWidth();
+    const uint32_t height = window.GetHeight();
 
-        4, 5, 6,
-        6, 7, 4,
-
-        0, 4, 7,
-        7, 3, 0,
-
-        1, 2, 6,
-        6, 5, 1,
-
-        0, 1, 5,
-        5, 4, 0,
-
-        3, 7, 6,
-        6, 2, 3
-    };
-
-    m_BoundsVertexArray =
-        Hazel::VertexArray::Create();
-
-    auto vertexBuffer =
-        Hazel::VertexBuffer::Create(
-            vertices,
-            static_cast<uint32_t>(
-                sizeof(vertices)));
-
-    vertexBuffer->SetLayout({
-        {
-            Hazel::ShaderDataType::Float3,
-            "a_Position"
-        }
-    });
-
-    m_BoundsVertexArray->AddVertexBuffer(
-        vertexBuffer);
-
-    auto indexBuffer =
-        Hazel::IndexBuffer::Create(
-            indices,
-            static_cast<uint32_t>(
-                sizeof(indices) /
-                sizeof(indices[0])));
-
-    m_BoundsVertexArray->SetIndexBuffer(
-        indexBuffer);
-
-    const std::string vertexSource = R"(
-        #version 330 core
-
-        layout(location = 0) in vec3 a_Position;
-
-        uniform mat4 u_ViewProjection;
-        uniform mat4 u_Transform;
-
-        void main()
-        {
-            gl_Position =
-                u_ViewProjection *
-                u_Transform *
-                vec4(a_Position, 1.0);
-        }
-    )";
-
-    const std::string fragmentSource = R"(
-        #version 330 core
-
-        layout(location = 0) out vec4 o_Color;
-
-        uniform vec4 u_Color;
-
-        void main()
-        {
-            o_Color = u_Color;
-        }
-    )";
-
-    m_BoundsShader =
-        Hazel::Shader::Create(
-            "AABBDebugShader",
-            vertexSource,
-            fragmentSource);
-}
-
-void Sandbox3D::DrawBounds(
-    const Hazel::AABB& localBounds,
-    const glm::mat4& transform)
-{
-    const Hazel::AABB worldBounds =
-        TransformAABB(
-            localBounds,
-            transform);
-
-    const glm::vec3 center =
-        (worldBounds.Min +
-         worldBounds.Max) *
-        0.5f;
-
-    const glm::vec3 size =
-        worldBounds.Max -
-        worldBounds.Min;
-
-    if (glm::dot(size, size) <= 0.000001f)
+    if (width == 0 || height == 0)
         return;
 
-    const glm::mat4 boundsTransform =
-        glm::translate(
-            glm::mat4(1.0f),
-            center) *
-        glm::scale(
-            glm::mat4(1.0f),
-            size);
-
-    auto& camera =
-        m_CameraController.GetCamera();
-
-    m_BoundsShader->Bind();
-
-    m_BoundsShader->SetMat4(
-        "u_ViewProjection",
-        camera.GetViewProjectionMatrix());
-
-    m_BoundsShader->SetMat4(
-        "u_Transform",
-        boundsTransform);
-
-    m_BoundsShader->SetFloat4(
-        "u_Color",
-        glm::vec4(
-            1.0f,
-            0.05f,
-            0.02f,
-            1.0f));
-
-    m_BoundsVertexArray->Bind();
-
-    // glDisable(GL_DEPTH_TEST);
-
-    // glPolygonMode(
-    //     GL_FRONT_AND_BACK,
-    //     GL_LINE);
-
-    // glLineWidth(2.0f);
-
-    // Hazel::RenderCommand::DrawIndexed(
-    //     m_BoundsVertexArray,
-    //     36);
-
-    // glPolygonMode(
-    //     GL_FRONT_AND_BACK,
-    //     GL_FILL);
-
-    // glEnable(GL_DEPTH_TEST);
-}
-
-void Sandbox3D::OnDetach()
-{
-    m_BoundsShader.reset();
-    m_BoundsVertexArray.reset();
-
-    m_ModelShader.reset();
-    m_Model.reset();
-}
-
-void Sandbox3D::OnUpdate(
-    Hazel::Timestep timestep)
-{
-    m_CameraController.OnUpdate(
-        timestep);
+    Hazel::RenderCommand::SetViewport(
+        0, 0, width, height);
 
     Hazel::RenderCommand::SetClearColor({
-        0.08f,
-        0.09f,
-        0.12f,
+        0.035f,
+        0.045f,
+        0.065f,
         1.0f
     });
 
     Hazel::RenderCommand::Clear();
 
-    if (!m_Model ||
-        !m_ModelShader)
-    {
-        return;
-    }
+    if (m_ShowEnvironment && m_EnvironmentMap)
+        RenderEnvironment();
 
+    if (!m_Model || !m_ModelMaterial)
+        return;
+
+    RenderModel();
+}
+
+void Sandbox3D::CreateEnvironment()
+{
+    m_EnvironmentMap = CreateEnvironmentTexture(512, 256, false);
+    m_IrradianceMap = CreateEnvironmentTexture(32, 16, true);
+
+    float vertices[] = {
+        -1.0f, -1.0f,
+         1.0f, -1.0f,
+         1.0f,  1.0f,
+        -1.0f,  1.0f
+    };
+
+    uint32_t indices[] = { 0, 1, 2, 2, 3, 0 };
+
+    auto vertexBuffer = Hazel::VertexBuffer::Create(
+        vertices, static_cast<uint32_t>(sizeof(vertices)));
+    vertexBuffer->SetLayout({
+        { Hazel::ShaderDataType::Float2, "a_Position" }
+    });
+
+    m_EnvironmentQuad = Hazel::VertexArray::Create();
+    m_EnvironmentQuad->AddVertexBuffer(vertexBuffer);
+    m_EnvironmentQuad->SetIndexBuffer(
+        Hazel::IndexBuffer::Create(indices, 6));
+
+    HZ_CORE_INFO("Sandbox3D: generated environment 512x256, diffuse map 32x16");
+}
+
+void Sandbox3D::RenderEnvironment()
+{
+    auto& camera = m_CameraController.GetCamera();
+
+    m_EnvironmentShader->Bind();
+    m_EnvironmentShader->SetMat4(
+        "u_InverseProjection",
+        glm::inverse(camera.GetProjectionMatrix()));
+    m_EnvironmentShader->SetMat3(
+        "u_InverseViewRotation",
+        glm::transpose(glm::mat3(camera.GetViewMatrix())));
+    m_EnvironmentShader->SetFloat(
+        "u_EnvironmentRotation", glm::radians(m_EnvironmentRotation));
+    m_EnvironmentShader->SetFloat("u_Intensity", m_BackgroundIntensity);
+
+    m_EnvironmentMap->Bind(0);
+    m_EnvironmentShader->SetInt("u_EnvironmentMap", 0);
+
+    // The background must not write scene depth or inherit alpha blending.
+    // Keep these temporary backend calls local to this Sandbox experiment.
+    const GLboolean depthTest = glIsEnabled(GL_DEPTH_TEST);
+    const GLboolean blend = glIsEnabled(GL_BLEND);
+    GLboolean depthWrite = GL_TRUE;
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWrite);
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+
+    m_EnvironmentQuad->Bind();
+    Hazel::RenderCommand::DrawIndexed(m_EnvironmentQuad, 6);
+
+    glDepthMask(depthWrite);
+    if (depthTest)
+        glEnable(GL_DEPTH_TEST);
+    if (blend)
+        glEnable(GL_BLEND);
+}
+
+void Sandbox3D::RenderModel()
+{
     auto& camera =
         m_CameraController.GetCamera();
 
-    m_ModelShader->Bind();
+    // 1. 绑定材质 Shader，上传材质数值和纹理。
+    const uint32_t nextTextureSlot =
+        Hazel::MaterialBinder::Bind(
+            *m_ModelMaterial,
+            0,
+            14); // Reserve two of the 16 slots for environment maps.
 
-    m_ModelShader->SetMat4(
+    // Binder 已经绑定了此 Shader。
+    auto& shader =
+        *m_ModelMaterial->GetMaterial()->GetShader();
+
+    // 2. 上传相机参数。
+    shader.SetMat4(
         "u_ViewProjection",
         camera.GetViewProjectionMatrix());
 
-    m_ModelShader->SetMat4(
-        "u_Transform",
+    // 适配当前 SetFloat3 的非 const 引用接口。
+    glm::vec3 cameraPosition =
+        camera.GetPosition();
+
+    shader.SetFloat3(
+        "u_CameraPosition",
+        cameraPosition);
+
+    // 3. 上传灯光。
+    const auto lightingStats =
+        Hazel::LightingUploader::Upload(
+            shader,
+            m_Lighting);
+
+    (void)lightingStats;
+
+    m_EnvironmentMap->Bind(nextTextureSlot);
+    m_IrradianceMap->Bind(nextTextureSlot + 1);
+
+    shader.SetInt("u_EnvironmentMap", static_cast<int>(nextTextureSlot));
+    shader.SetInt("u_IrradianceMap", static_cast<int>(nextTextureSlot + 1));
+    shader.SetInt("u_EnvironmentEnabled", m_EnvironmentLighting ? 1 : 0);
+    shader.SetFloat("u_EnvironmentIntensity", m_EnvironmentIntensity);
+    shader.SetFloat("u_ReflectionStrength", m_ReflectionStrength);
+    shader.SetFloat(
+        "u_EnvironmentRotation", glm::radians(m_EnvironmentRotation));
+
+    // 4. 上传物体变换。
+    shader.SetMat4(
+        "u_Model",
         m_ModelTransform);
 
-    m_ModelShader->SetFloat4(
-        "u_Tint",
-        glm::vec4(
-            0.65f,
-            0.72f,
-            0.86f,
-            1.0f));
+    shader.SetMat3(
+        "u_NormalMatrix",
+        m_NormalMatrix);
 
+    // 5. 提交几何。
     const auto& vertexArray =
         m_Model->GetVertexArray();
 
@@ -858,15 +832,69 @@ void Sandbox3D::OnUpdate(
     Hazel::RenderCommand::DrawIndexed(
         vertexArray,
         m_Model->GetIndexCount());
-
-    DrawBounds(
-        m_Model->GetBounds(),
-        m_ModelTransform);
 }
 
-void Sandbox3D::OnEvent(
-    Hazel::Event& event)
+void Sandbox3D::OnImGuiRender()
 {
-    m_CameraController.OnEvent(
-        event);
+    ImGui::Begin("Environment", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::PushItemWidth(240.0f);
+
+    ImGui::ColorEdit3(
+        "Ambient color", glm::value_ptr(m_Lighting.Ambient.Color));
+    ImGui::SliderFloat("Ambient intensity", &m_Lighting.Ambient.Intensity,
+        0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+
+    ImGui::Separator();
+    ImGui::Checkbox("Show background", &m_ShowEnvironment);
+    ImGui::Checkbox("Environment lighting", &m_EnvironmentLighting);
+    ImGui::SliderFloat("Diffuse intensity", &m_EnvironmentIntensity,
+        0.0f, 2.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::SliderFloat("Reflection strength", &m_ReflectionStrength,
+        0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::SliderFloat("Background intensity", &m_BackgroundIntensity,
+        0.0f, 2.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::SliderFloat("Environment rotation", &m_EnvironmentRotation,
+        -180.0f, 180.0f, "%.0f deg", ImGuiSliderFlags_AlwaysClamp);
+
+    ImGui::PopItemWidth();
+    ImGui::End();
+}
+
+void Sandbox3D::OnEvent(Hazel::Event& event)
+{
+    // The current camera controller divides by height on resize.
+    // Ignore minimized dimensions until a non-zero resize arrives.
+    if (event.GetEventType() == Hazel::EventType::WindowResize)
+    {
+        const auto& resize =
+            static_cast<const Hazel::WindowResizeEvent&>(event);
+
+        if (resize.GetWidth() == 0 || resize.GetHeight() == 0)
+            return;
+    }
+
+    const auto& io = ImGui::GetIO();
+    if ((io.WantCaptureMouse &&
+         event.IsInCategory(Hazel::EventCategoryMouse)) ||
+        (io.WantCaptureKeyboard &&
+         event.IsInCategory(Hazel::EventCategoryKeyboard)))
+    {
+        return;
+    }
+
+    m_CameraController.OnEvent(event);
+}
+
+void Sandbox3D::OnDetach()
+{
+    m_EnvironmentQuad.reset();
+    m_EnvironmentShader.reset();
+    m_IrradianceMap.reset();
+    m_EnvironmentMap.reset();
+
+    m_ModelMaterial.reset();
+    m_MaterialSystem.reset();
+
+    m_ModelShader.reset();
+    m_Model.reset();
 }

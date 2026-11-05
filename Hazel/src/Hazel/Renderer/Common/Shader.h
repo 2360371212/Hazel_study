@@ -1,8 +1,13 @@
 #pragma once
 #include "Hazel/Core/Core.h"
 #include <glm/glm.hpp>
+#include <variant>
+
 
 namespace Hazel{
+
+
+
     class Shader
     {
     public:
@@ -13,8 +18,10 @@ namespace Hazel{
 
         virtual void SetInt(const std::string& name, int value) = 0;
         virtual void SetFloat(const std::string& name, float value) = 0;
+        virtual void SetFloat2(const std::string& name, glm::vec2& value) = 0;
         virtual void SetFloat3(const std::string& name, glm::vec3& value) = 0;
         virtual void SetFloat4(const std::string& name, const glm::vec4& value) = 0;
+        virtual void SetMat3(const std::string& name, const glm::mat3& value) = 0;
         virtual void SetMat4(const std::string& name, const glm::mat4& value) = 0;
         virtual void SetIntArray(const std::string& name, int* values, uint32_t count) = 0;
 
@@ -38,4 +45,6 @@ namespace Hazel{
             // 着色器, 着色器指针
             std::unordered_map<std::string, std::shared_ptr<Shader>> m_Shaders;
     };
+
+
 }
