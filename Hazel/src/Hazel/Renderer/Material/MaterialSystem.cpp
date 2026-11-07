@@ -32,12 +32,22 @@ namespace Hazel
         defaults.Set("u_Material.BaseColor", glm::vec4(1.0f));
         defaults.Set("u_Material.SpecularStrength", 0.3f);
         defaults.Set("u_Material.Shininess", 32.0f);
-
         defaults.SetTexture("u_BaseColorMap", m_WhiteTexture);
 
         return CreateRef<Material>("BlinnPhong", shader, std::move(defaults));
     }
 
-    
+
+    Ref<Material> MaterialSystem::CreatePBR(const Ref<Shader>& shader) const
+    {
+        ShaderParameters defaults;
+
+        defaults.Set("u_Material.BaseColor", glm::vec4(1.0f));
+        defaults.Set("u_Material.Metallic", 0.0f);
+        defaults.Set("u_Material.Roughness", 0.5f);
+        defaults.SetTexture("u_BaseColorMap", m_WhiteTexture);
+
+        return CreateRef<Material>("PBR", shader, std::move(defaults));
+    }
 
 }

@@ -2,6 +2,8 @@
 #include "PrimitiveMesh.h"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+
 
 namespace Hazel
 {
@@ -128,6 +130,60 @@ namespace Hazel
 
         data.Indices = {0, 1, 2, 2, 3, 0};
         data.Bounds = CalculateBounds(data.Vertices);
+
+        return Mesh::Create(data);
+    }
+
+    Ref<Mesh> PrimitiveMesh::CreateSphere(float radius, uint32_t longitudeSegments, uint32_t latitudeSegments)
+    {
+        MeshData data;
+        const uint32_t rowVertexCount = longitudeSegments + 1;
+
+        // 创建对应的容量，但是不填充数据
+        data.Vertices.reserve(rowVertexCount * (latitudeSegments + 1));
+        data.Indices.reserve(longitudeSegments * (latitudeSegments - 1) * 6);
+
+        // 顶点。
+        for (uint32_t latitude = 0; latitude <= latitudeSegments; ++latitude)
+        {
+            const float v = static_cast<float>(latitude) / static_cast<float>(latitudeSegments);
+            const float theta = v * glm::pi<float>();
+
+            const float sinTheta = std::sin(theta);
+            const float cosTheta = std::cos(theta);
+
+            for (uint32_t longitude = 0; longitude <= longitudeSegments; ++longitude)
+            {
+                const float u = static_cast<float>(longitude) / static_cast<float>(longitudeSegments);
+                const float phi = u * glm::two_pi<float>();
+                const glm::vec3 normal{sinTheta * std::cos(phi), cosTheta, sinTheta * std::sin(phi)};
+                data.Vertices.push_back({normal * radius, normal, { u, 1.0f - v }});
+            }
+        }
+
+        // 索引：从球体外部观察为逆时针。
+        for (uint32_t latitude = 0; latitude < latitudeSegments; ++latitude)
+        {
+            for (uint32_t longitude = 0; longitude < longitudeSegments; ++longitude)
+            {
+                const uint32_t a = latitude * rowVertexCount + longitude;
+                const uint32_t b = a + rowVertexCount;
+
+                // 北极处跳过退化三角形。
+                if (latitude > 0)
+                {
+                    data.Indices.insert(data.Indices.end(), {a, a + 1, b});
+                }
+
+                // 南极处跳过退化三角形。
+                if (latitude + 1 < latitudeSegments)
+                {
+                    data.Indices.insert(data.Indices.end(), {a + 1, b + 1, b});
+                }
+            }
+        }
+        data.Bounds.Min = glm::vec3(-radius);
+        data.Bounds.Max = glm::vec3(radius);
 
         return Mesh::Create(data);
     }

@@ -8,9 +8,11 @@ namespace Hazel
     {
     public:
         MaterialSystem();
-        Ref<Material> CreateUnlit(const Ref<Shader>& shader) const;
 
+        Ref<Material> CreateUnlit(const Ref<Shader>& shader) const;
+        Ref<Material> EmissiveMaterial(const Ref<Shader>& shader) const;
         Ref<Material> CreateBlinnPhong(const Ref<Shader>& shader) const;
+        Ref<Material> CreatePBR(const Ref<Shader>& shader) const;
 
         const Ref<Texture2D>& GetWhiteTexture() const
         {
