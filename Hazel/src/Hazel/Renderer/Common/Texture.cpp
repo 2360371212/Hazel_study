@@ -32,4 +32,30 @@ namespace Hazel{
         HZ_CORE_ASSERT(false, "UnKnow RendererAPI!");
         return nullptr;
     }
+
+    Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification)
+    {
+        switch (RendererAPI::GetAPI())
+        {
+            case RendererAPI::API::OpenGL:{
+                return std::make_shared<OpenGLTexture2D>(specification);
+            }
+            case RendererAPI::API::None:{
+                HZ_CORE_ASSERT(false, "RendererAPI currently not supported");
+            }
+        }
+    }
+
+    Ref<TextureCube> TextureCube::Create(const TextureSpecification& specification)
+    {
+        switch (RendererAPI::GetAPI())
+        {
+            case RendererAPI::API::OpenGL:{
+                return std::make_shared<OpenGLTextureCube>(specification);
+            }
+            case RendererAPI::API::None:{
+                HZ_CORE_ASSERT(false, "RendererAPI currently not supported");
+            }
+        }
+    }
 }
