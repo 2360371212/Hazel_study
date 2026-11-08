@@ -1,4 +1,6 @@
 #pragma once
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include "Hazel/Core/Core.h"
 
@@ -35,6 +37,18 @@ namespace Hazel{
         TextureWrap Wrap = TextureWrap::ClampToEdge;
     };
 
+    struct TextureLoadOptions
+    {
+        // 保持旧接口的默认行为：LDR 以线性格式存储，由调用方决定颜色解码。
+        // HDR 自动使用 RGBA16F，不能同时启用 SRGB。
+        bool SRGB = false;
+        bool FlipVertically = true;
+
+        // 与 TextureSpecification 相同：0 表示完整 mip 链。
+        uint32_t MipLevels = 1;
+        TextureWrap Wrap = TextureWrap::Repeat;
+    };
+
     class Texture{
         public:
             Texture() = default;
@@ -64,7 +78,9 @@ namespace Hazel{
             // 上传基础层数据。
             // Texture2D：一张图像。
             // TextureCube：按 CubeFace 顺序紧密排列的六张图像。
-            virtual void SetData(const void* data, uint32_t size) = 0;
+            // 8 位格式上传 uint8_t；16F 格式上传 float，由 OpenGL 转换存储。
+            // size 为 CPU 数据字节数；上传后需要时显式调用 GenerateMipmaps。
+            virtual void SetData(const void* data, std::size_t size) = 0;
 
             // 根据基础层生成普通 mip。
             virtual void GenerateMipmaps() = 0;
@@ -80,6 +96,8 @@ namespace Hazel{
     class Texture2D : public Texture{
         public:
             static Ref<Texture2D> Create(const std::string& path);
+
+            static Ref<Texture2D> Create(const std::string& path, const TextureLoadOptions& options);
 
             static Ref<Texture2D> Create(uint32_t width, uint32_t height);
 

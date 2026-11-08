@@ -1,9 +1,11 @@
 #include "hzpch.h"
 #include "OpenGLTexture.h"
-#include "Hazel/Core/Log.h"
 #include "stb_image.h"
-#include "Hazel/Debug/Instrumentor.h"
 #include <glad/glad.h>
+
+#include <algorithm>
+#include <memory>
+#include <stdexcept>
 
 namespace Hazel{
 
@@ -34,7 +36,7 @@ namespace Hazel{
                 case TextureFormat::RGBA16F:
                     return {GL_RGBA16F, GL_RGBA, GL_FLOAT, 4 * sizeof(float)};
             }
-            HZ_CORE_ASSERT(false, "Unsupported texture format");
+            throw std::invalid_argument("Unsupported texture format");
         }
 
         GLenum GetWrapMode(TextureWrap wrap)
@@ -46,7 +48,7 @@ namespace Hazel{
                 case TextureWrap::ClampToEdge:
                     return GL_CLAMP_TO_EDGE;
             }
-            HZ_CORE_ASSERT(false, "Unsupported texture wrap mode");
+            throw std::invalid_argument("Unsupported texture wrap mode");
         }
 
         uint32_t CalculateFullMipCount(uint32_t width, uint32_t height)
@@ -65,12 +67,12 @@ namespace Hazel{
         {
             if (specification.Width == 0 || specification.Height == 0)
             {
-                HZ_CORE_ASSERT(false, "Texture dimensions must be greater than zero");
+                throw std::invalid_argument("Texture dimensions must be greater than zero");
             }
 
             if (isCube && specification.Width != specification.Height)
             {
-                HZ_CORE_ASSERT(false, "Cubemap faces must be square");
+                throw std::invalid_argument("Cubemap faces must be square");
             }
 
             const uint32_t maxMipCount = CalculateFullMipCount(specification.Width, specification.Height);
@@ -80,7 +82,7 @@ namespace Hazel{
 
             if (specification.MipLevels > maxMipCount)
             {
-                HZ_CORE_ASSERT(false, "Too many mip levels for texture dimensions");
+                throw std::invalid_argument("Too many mip levels for texture dimensions");
             }
         }
 
@@ -120,7 +122,7 @@ namespace Hazel{
         {
             if (!data || size != expectedSize)
             {
-                HZ_CORE_ASSERT(false, "Texture upload requires complete, tightly packed data");
+                throw std::invalid_argument("Texture upload requires complete, tightly packed data");
             }
         }
 
@@ -143,70 +145,15 @@ namespace Hazel{
         };
     }
 
-    OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height)
-        :m_Width(width), m_Height(height)
-    {
-
-        m_InternalFormat = GL_RGBA8;
-        m_DataFormat = GL_RGBA;
-
-        // HZ_CORE_ASSERT(internalFormat & dataFormat, "Format not support");
-
-        glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
-        glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
-
-        glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    }
-     
     OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
-        :m_Path(path)
+        : OpenGLTexture2D(path, TextureLoadOptions{})
     {
-        HZ_PROFILE_FUNCTION();
-        int width, height, channels;
-        stbi_set_flip_vertically_on_load(1);
-        stbi_uc* data = nullptr;
-        {
-            HZ_PROFILE_SCOPE("stbi_load - OpenGLTexture2D::OpenGLTexture2D(const std::string&)");
-            data = stbi_load(path.c_str(), &width, &height, &channels, 0);
-        }
-        HZ_CORE_ASSERT(data, "Failed to load image!");
-        m_Width = width;
-        m_Height = height;
+    }
 
-        GLenum internalFormat = 0, dataFormat = 0; 
-        if (channels == 4)
-        {
-            internalFormat = GL_RGBA8;
-            dataFormat = GL_RGBA;
-        } else if (channels == 3)
-        {
-            internalFormat = GL_RGB8;
-            dataFormat = GL_RGB;
-        }
-
-        m_InternalFormat = internalFormat;
-        m_DataFormat = dataFormat;
-
-        HZ_CORE_ASSERT(internalFormat & dataFormat, "Format not support");
-
-        glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
-        glTextureStorage2D(m_RendererID, 1, internalFormat, m_Width, m_Height);
-
-        glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        // Upload to GPU
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, dataFormat, GL_UNSIGNED_BYTE, data);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        // free cpu memory
-        stbi_image_free(data);
+    OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height)
+        : OpenGLTexture2D(TextureSpecification{
+            width, height, TextureFormat::RGBA8, 1, TextureWrap::Repeat})
+    {
     }
 
     OpenGLTexture2D::OpenGLTexture2D(const TextureSpecification& specification)
@@ -216,15 +163,21 @@ namespace Hazel{
     }
 
 
-    OpenGLTexture2D::OpenGLTexture2D(const std::string& path, bool sRGB, bool flipVertically){
+    OpenGLTexture2D::OpenGLTexture2D(const std::string& path, bool sRGB, bool flipVertically)
+        : OpenGLTexture2D(path, TextureLoadOptions{sRGB, flipVertically, 0})
+    {
+    }
+
+    OpenGLTexture2D::OpenGLTexture2D(const std::string& path, const TextureLoadOptions& options)
+    {
         const bool isHDR = stbi_is_hdr(path.c_str()) != 0;
 
-        if (isHDR && sRGB)
+        if (isHDR && options.SRGB)
         {
-            HZ_CORE_ASSERT(false, "HDR environment textures must use a linear format")
+            throw std::invalid_argument("HDR textures must use a linear format: " + path);
         }
 
-        stbi_set_flip_vertically_on_load_thread(flipVertically ? 1 : 0);
+        stbi_set_flip_vertically_on_load_thread(options.FlipVertically ? 1 : 0);
 
         int width = 0;
         int height = 0;
@@ -256,14 +209,15 @@ namespace Hazel{
 
         if (!pixels)
         {
-            HZ_CORE_ASSERT(false, "Failed to load texture: " + path)
+            throw std::runtime_error("Failed to load texture: " + path);
         }
 
         m_Specification.Width = static_cast<uint32_t>(width);
         m_Specification.Height = static_cast<uint32_t>(height);
-        m_Specification.Format = isHDR ? TextureFormat::RGBA16F : (sRGB ? TextureFormat::SRGBA8 : TextureFormat::RGBA8);
-        m_Specification.Wrap = isHDR ? TextureWrap::ClampToEdge : TextureWrap::Repeat;
-        m_Specification.MipLevels = 0;
+        m_Specification.Format = isHDR ? TextureFormat::RGBA16F :
+            (options.SRGB ? TextureFormat::SRGBA8 : TextureFormat::RGBA8);
+        m_Specification.Wrap = options.Wrap;
+        m_Specification.MipLevels = options.MipLevels;
 
         CreateTextureStorage(GL_TEXTURE_2D, m_Specification, m_RendererID);
         const auto format = GetFormatInfo(m_Specification.Format);
@@ -272,9 +226,17 @@ namespace Hazel{
         GenerateMipmaps();
     }
 
-    void OpenGLTexture2D::SetData(const void* data, uint32_t size){
-        HZ_CORE_ASSERT(size == m_Width * m_Height * (m_DataFormat == GL_RGBA ? 4 : 3), "Data must be entire texture!");
-        glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, m_DataFormat, GL_UNSIGNED_BYTE, data);
+    void OpenGLTexture2D::SetData(const void* data, std::size_t size)
+    {
+        const auto format = GetFormatInfo(GetFormat());
+        const std::size_t expectedSize =
+            static_cast<std::size_t>(GetWidth()) * GetHeight() * format.UploadBytesPerPixel;
+        ValidateUpload(data, size, expectedSize);
+
+        ScopedUnpackAlignment alignment;
+        glTextureSubImage2D(
+            m_RendererID, 0, 0, 0, GetWidth(), GetHeight(),
+            format.DataFormat, format.DataType, data);
     }
 
     OpenGLTexture2D::~OpenGLTexture2D(){
@@ -282,21 +244,23 @@ namespace Hazel{
     }
 
     uint32_t OpenGLTexture2D::GetWidth() const{
-        return m_Width;
+        return m_Specification.Width;
     } 
 
     uint32_t OpenGLTexture2D::GetHeight() const{
-        return m_Height;
+        return m_Specification.Height;
     }
 
     uint32_t OpenGLTexture2D::GetRendererID() const{
-        return NULL;
+        return m_RendererID;
     } 
     const TextureSpecification& OpenGLTexture2D::GetSpecification() const{
-        return TextureSpecification{};
+        return m_Specification;
     }
-    void OpenGLTexture2D::GenerateMipmaps() {
-
+    void OpenGLTexture2D::GenerateMipmaps()
+    {
+        if (GetMipLevelCount() > 1)
+            glGenerateTextureMipmap(m_RendererID);
     }
 
     void OpenGLTexture2D::Bind(uint32_t slot) const{
@@ -316,7 +280,7 @@ namespace Hazel{
         glDeleteTextures(1, &m_RendererID);
     }
 
-    void OpenGLTextureCube::SetData(const void* data, uint32_t size)
+    void OpenGLTextureCube::SetData(const void* data, std::size_t size)
     {
         const auto format = GetFormatInfo(m_Specification.Format);
         const std::size_t faceSize = static_cast<std::size_t>(GetWidth()) * GetHeight() * format.UploadBytesPerPixel;

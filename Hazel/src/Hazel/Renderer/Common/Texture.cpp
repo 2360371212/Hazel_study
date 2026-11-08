@@ -1,36 +1,35 @@
 #include "hzpch.h"
 #include "Texture.h"
-#include "Hazel/Renderer/Renderer.h"
+#include "Hazel/Renderer/Common/RendererAPI.h"
 #include "Platform/OpenGL/OpenGLTexture.h"
 #include <memory>
+#include <stdexcept>
 
 namespace Hazel{
-    Ref<Texture2D> Texture2D::Create(const std::string& path){
-        switch (Renderer::GetAPI())
-        {
-            case RendererAPI::API::None:{
-                HZ_CORE_ASSERT(false, "RendererAPI currently not supported");
-            }
-            case RendererAPI::API::OpenGL:{
-                return std::make_shared<OpenGLTexture2D>(path);
-            }
-        }
-        HZ_CORE_ASSERT(false, "UnKnow RendererAPI!");
-        return nullptr;
+    Ref<Texture2D> Texture2D::Create(const std::string& path)
+    {
+        return Create(path, TextureLoadOptions{});
     }
 
-    Ref<Texture2D> Texture2D::Create(uint32_t width, uint32_t height){
-        switch (Renderer::GetAPI())
+    Ref<Texture2D> Texture2D::Create(const std::string& path, const TextureLoadOptions& options)
+    {
+        switch (RendererAPI::GetAPI())
         {
-            case RendererAPI::API::None:{
-                HZ_CORE_ASSERT(false, "RendererAPI currently not supported");
-            }
-            case RendererAPI::API::OpenGL:{
-                return std::make_shared<OpenGLTexture2D>(width, height);
-            }
+            case RendererAPI::API::OpenGL:
+                return std::make_shared<OpenGLTexture2D>(path, options);
         }
-        HZ_CORE_ASSERT(false, "UnKnow RendererAPI!");
-        return nullptr;
+
+        throw std::runtime_error("Renderer API does not support textures");
+    }
+
+    Ref<Texture2D> Texture2D::Create(uint32_t width, uint32_t height)
+    {
+        TextureSpecification specification;
+        specification.Width = width;
+        specification.Height = height;
+        specification.Wrap = TextureWrap::Repeat;
+
+        return Create(specification);
     }
 
     Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification)
@@ -40,10 +39,9 @@ namespace Hazel{
             case RendererAPI::API::OpenGL:{
                 return std::make_shared<OpenGLTexture2D>(specification);
             }
-            case RendererAPI::API::None:{
-                HZ_CORE_ASSERT(false, "RendererAPI currently not supported");
-            }
         }
+
+        throw std::runtime_error("Renderer API does not support textures");
     }
 
     Ref<TextureCube> TextureCube::Create(const TextureSpecification& specification)
@@ -53,9 +51,8 @@ namespace Hazel{
             case RendererAPI::API::OpenGL:{
                 return std::make_shared<OpenGLTextureCube>(specification);
             }
-            case RendererAPI::API::None:{
-                HZ_CORE_ASSERT(false, "RendererAPI currently not supported");
-            }
         }
+
+        throw std::runtime_error("Renderer API does not support textures");
     }
 }
