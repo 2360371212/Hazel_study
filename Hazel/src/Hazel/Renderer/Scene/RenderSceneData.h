@@ -42,6 +42,7 @@ namespace Hazel
 
         Ref<Texture2D> EnvironmentMap;
         Ref<Texture2D> IrradianceMap;
+        Ref<TextureCube> SkyboxMap;
 
         bool ShowBackground = true;
         bool EnvironmentLightingEnabled = false;

@@ -20,7 +20,9 @@ namespace Hazel
 
         std::vector<FramebufferAttachmentSpecification> Attachments;
 
+        // 存储深度值
         bool HasDepthAttachment = true;
+        // 存储模板值
         bool HasStencilAttachment = false;
     };
 

@@ -24,6 +24,9 @@ namespace Hazel
         Ref<Texture2D> EnvironmentMap;
         Ref<Texture2D> IrradianceMap;
 
+        // 远处天空背景，与旧的二维环境光照资源独立。
+        Ref<TextureCube> SkyboxMap;
+
         bool ShowBackground = true;
         bool EnvironmentLightingEnabled = false;
 

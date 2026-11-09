@@ -165,6 +165,7 @@ namespace Hazel
 
         target.EnvironmentMap = source.EnvironmentMap;
         target.IrradianceMap = source.IrradianceMap;
+        target.SkyboxMap = source.SkyboxMap;
         target.ShowBackground = source.ShowBackground;
         target.EnvironmentLightingEnabled = source.EnvironmentLightingEnabled;
         target.EnvironmentIntensity = source.EnvironmentIntensity;
