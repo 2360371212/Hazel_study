@@ -2,6 +2,7 @@
 
 namespace Hazel
 {
+    // 描述各种渲染模式
     // 混合模式
     enum class BlendMode {
         Opaque,

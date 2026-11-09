@@ -1,6 +1,9 @@
 #include "Sandbox3D.h"
 
 #include "Hazel/Events/ApplicationEvent.h"
+#include "Hazel/Renderer/Renderer3D.h"
+#include "Hazel/Renderer/RenderView.h"
+#include "Hazel/Renderer/Scene/SceneRenderExtractor.h"
 
 #include <algorithm>
 #include <cmath>
@@ -20,6 +23,9 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <glad/glad.h>
 #include <imgui.h>
@@ -615,6 +621,8 @@ void Sandbox3D::OnAttach()
     const auto sandboxAssetsRoot =
         projectRoot / "Sandbox/assets";
 
+    m_Scene = std::make_unique<Hazel::Scene>();
+
     m_MaterialSystem =
         std::make_unique<Hazel::MaterialSystem>();
 
@@ -623,6 +631,9 @@ void Sandbox3D::OnAttach()
 
     CreateEnvironment(sandboxAssetsRoot);
     CreateModelTest(sandboxAssetsRoot);
+
+    BuildRenderScene();
+    SyncRenderScene();
 
     ResetTestCamera();
 }
@@ -909,6 +920,447 @@ void Sandbox3D::CreateModelTest(
     m_Lighting.SpotLights.push_back(spot);
 }
 
+void Sandbox3D::BuildRenderScene()
+{
+    m_Scene->Clear();
+
+    auto applyMatrix = [](
+        const glm::mat4& matrix,
+        Hazel::TransformComponent& transform)
+    {
+        glm::vec3 scale;
+        glm::vec3 translation;
+        glm::vec3 skew;
+        glm::vec4 perspective;
+        glm::quat rotation;
+
+        if (glm::decompose(
+                matrix,
+                scale,
+                rotation,
+                translation,
+                skew,
+                perspective))
+        {
+            transform.Position = translation;
+            transform.Scale = scale;
+            transform.Rotation = glm::eulerAngles(rotation);
+        }
+    };
+
+    auto directionToRotation = [](
+        glm::vec3 direction)
+    {
+        if (glm::dot(direction, direction) < 0.000001f)
+            return glm::vec3(0.0f);
+
+        direction = glm::normalize(direction);
+
+        const glm::vec3 up =
+            std::abs(direction.y) < 0.99f
+                ? glm::vec3(0.0f, 1.0f, 0.0f)
+                : glm::vec3(1.0f, 0.0f, 0.0f);
+
+        return glm::eulerAngles(
+            glm::quatLookAt(direction, up));
+    };
+
+    m_PBRSceneEntities.clear();
+    m_PBRScenePointLights.clear();
+
+    for (const auto& object : m_PBRObjects)
+    {
+        auto entity =
+            m_Scene->CreateEntity(
+                "PBR Sphere");
+
+        auto& transform =
+            entity.AddComponent<
+                Hazel::TransformComponent>();
+
+        applyMatrix(
+            object.Transform,
+            transform);
+
+        auto& renderer =
+            entity.AddComponent<
+                Hazel::MeshRendererComponent>();
+
+        renderer.MeshResource =
+            m_PBRSphere;
+
+        renderer.Material =
+            object.Material;
+
+        m_PBRSceneEntities.push_back(
+            entity);
+    }
+
+    m_PBRSceneDirectionalLight =
+        m_Scene->CreateEntity(
+            "PBR Directional Light");
+
+    {
+        auto& source =
+            m_PBRLighting.DirectionalLights.front();
+
+        auto& transform =
+            m_PBRSceneDirectionalLight.AddComponent<
+                Hazel::TransformComponent>();
+
+        transform.Rotation =
+            directionToRotation(source.Direction);
+
+        auto& light =
+            m_PBRSceneDirectionalLight.AddComponent<
+                Hazel::DirectionalLightComponent>();
+
+        light.Properties =
+            source.Properties;
+    }
+
+    for (const auto& source : m_PBRLighting.PointLights)
+    {
+        auto entity =
+            m_Scene->CreateEntity(
+                "PBR Point Light");
+
+        auto& transform =
+            entity.AddComponent<
+                Hazel::TransformComponent>();
+
+        transform.Position =
+            source.Position;
+
+        auto& light =
+            entity.AddComponent<
+                Hazel::PointLightComponent>();
+
+        light.Properties =
+            source.Properties;
+
+        light.Range =
+            source.Range;
+
+        m_PBRScenePointLights.push_back(
+            entity);
+    }
+
+    m_PBRSceneSpotLight =
+        m_Scene->CreateEntity(
+            "PBR Spot Light");
+
+    {
+        auto& source =
+            m_PBRLighting.SpotLights.front();
+
+        auto& transform =
+            m_PBRSceneSpotLight.AddComponent<
+                Hazel::TransformComponent>();
+
+        transform.Position =
+            source.Position;
+
+        transform.Rotation =
+            directionToRotation(source.Direction);
+
+        auto& light =
+            m_PBRSceneSpotLight.AddComponent<
+                Hazel::SpotLightComponent>();
+
+        light.Properties =
+            source.Properties;
+
+        light.Range =
+            source.Range;
+
+        light.InnerConeAngle =
+            source.InnerConeAngle;
+
+        light.OuterConeAngle =
+            source.OuterConeAngle;
+    }
+
+    if (m_Model && m_ModelMaterial)
+    {
+        m_ModelSceneEntity =
+            m_Scene->CreateEntity(
+                "Spaceship");
+
+        auto& transform =
+            m_ModelSceneEntity.AddComponent<
+                Hazel::TransformComponent>();
+
+        applyMatrix(
+            m_ModelTransform,
+            transform);
+
+        auto& renderer =
+            m_ModelSceneEntity.AddComponent<
+                Hazel::MeshRendererComponent>();
+
+        renderer.MeshResource =
+            m_Model;
+
+        renderer.Material =
+            m_ModelMaterial;
+
+        m_ModelSceneDirectionalLight =
+            m_Scene->CreateEntity(
+                "Model Directional Light");
+
+        auto& directionalSource =
+            m_Lighting.DirectionalLights.front();
+
+        auto& directionalTransform =
+            m_ModelSceneDirectionalLight.AddComponent<
+                Hazel::TransformComponent>();
+
+        directionalTransform.Rotation =
+            directionToRotation(
+                directionalSource.Direction);
+
+        auto& directionalLight =
+            m_ModelSceneDirectionalLight.AddComponent<
+                Hazel::DirectionalLightComponent>();
+
+        directionalLight.Properties =
+            directionalSource.Properties;
+
+        m_ModelScenePointLight =
+            m_Scene->CreateEntity(
+                "Model Point Light");
+
+        auto& pointSource =
+            m_Lighting.PointLights.front();
+
+        auto& pointTransform =
+            m_ModelScenePointLight.AddComponent<
+                Hazel::TransformComponent>();
+
+        pointTransform.Position =
+            pointSource.Position;
+
+        auto& pointLight =
+            m_ModelScenePointLight.AddComponent<
+                Hazel::PointLightComponent>();
+
+        pointLight.Properties =
+            pointSource.Properties;
+
+        pointLight.Range =
+            pointSource.Range;
+
+        m_ModelSceneSpotLight =
+            m_Scene->CreateEntity(
+                "Model Spot Light");
+
+        auto& spotSource =
+            m_Lighting.SpotLights.front();
+
+        auto& spotTransform =
+            m_ModelSceneSpotLight.AddComponent<
+                Hazel::TransformComponent>();
+
+        spotTransform.Position =
+            spotSource.Position;
+
+        spotTransform.Rotation =
+            directionToRotation(
+                spotSource.Direction);
+
+        auto& spotLight =
+            m_ModelSceneSpotLight.AddComponent<
+                Hazel::SpotLightComponent>();
+
+        spotLight.Properties =
+            spotSource.Properties;
+
+        spotLight.Range =
+            spotSource.Range;
+
+        spotLight.InnerConeAngle =
+            spotSource.InnerConeAngle;
+
+        spotLight.OuterConeAngle =
+            spotSource.OuterConeAngle;
+    }
+}
+
+void Sandbox3D::SyncRenderScene()
+{
+    if (!m_Scene)
+        return;
+
+    const bool pbrEnabled =
+        m_ShowPBRTest;
+
+    for (auto& entity : m_PBRSceneEntities)
+        entity.SetEnabled(pbrEnabled);
+
+    if (m_PBRSceneDirectionalLight)
+        m_PBRSceneDirectionalLight.SetEnabled(pbrEnabled);
+
+    for (auto& entity : m_PBRScenePointLights)
+        entity.SetEnabled(pbrEnabled);
+
+    if (m_PBRSceneSpotLight)
+        m_PBRSceneSpotLight.SetEnabled(pbrEnabled);
+
+    if (m_ModelSceneEntity)
+        m_ModelSceneEntity.SetEnabled(!pbrEnabled);
+
+    if (m_ModelSceneDirectionalLight)
+        m_ModelSceneDirectionalLight.SetEnabled(!pbrEnabled);
+
+    if (m_ModelScenePointLight)
+        m_ModelScenePointLight.SetEnabled(!pbrEnabled);
+
+    if (m_ModelSceneSpotLight)
+        m_ModelSceneSpotLight.SetEnabled(!pbrEnabled);
+
+    if (m_PBRSceneDirectionalLight &&
+        !m_PBRLighting.DirectionalLights.empty())
+    {
+        auto& component =
+            m_PBRSceneDirectionalLight.GetComponent<
+                Hazel::DirectionalLightComponent>();
+
+        component.Properties =
+            m_PBRLighting.DirectionalLights.front().Properties;
+    }
+
+    for (size_t i = 0;
+         i < m_PBRScenePointLights.size() &&
+             i < m_PBRLighting.PointLights.size();
+         ++i)
+    {
+        auto& component =
+            m_PBRScenePointLights[i].GetComponent<
+                Hazel::PointLightComponent>();
+
+        component.Properties =
+            m_PBRLighting.PointLights[i].Properties;
+
+        component.Range =
+            m_PBRLighting.PointLights[i].Range;
+    }
+
+    if (m_PBRSceneSpotLight &&
+        !m_PBRLighting.SpotLights.empty())
+    {
+        auto& source =
+            m_PBRLighting.SpotLights.front();
+
+        auto& component =
+            m_PBRSceneSpotLight.GetComponent<
+                Hazel::SpotLightComponent>();
+
+        component.Properties =
+            source.Properties;
+
+        component.Range =
+            source.Range;
+
+        component.InnerConeAngle =
+            source.InnerConeAngle;
+
+        component.OuterConeAngle =
+            source.OuterConeAngle;
+    }
+
+    if (m_ModelSceneDirectionalLight &&
+        !m_Lighting.DirectionalLights.empty())
+    {
+        auto& component =
+            m_ModelSceneDirectionalLight.GetComponent<
+                Hazel::DirectionalLightComponent>();
+
+        component.Properties =
+            m_Lighting.DirectionalLights.front().Properties;
+    }
+
+    if (m_ModelScenePointLight &&
+        !m_Lighting.PointLights.empty())
+    {
+        auto& component =
+            m_ModelScenePointLight.GetComponent<
+                Hazel::PointLightComponent>();
+
+        component.Properties =
+            m_Lighting.PointLights.front().Properties;
+
+        component.Range =
+            m_Lighting.PointLights.front().Range;
+    }
+
+    if (m_ModelSceneSpotLight &&
+        !m_Lighting.SpotLights.empty())
+    {
+        auto& source =
+            m_Lighting.SpotLights.front();
+
+        auto& component =
+            m_ModelSceneSpotLight.GetComponent<
+                Hazel::SpotLightComponent>();
+
+        component.Properties =
+            source.Properties;
+
+        component.Range =
+            source.Range;
+
+        component.InnerConeAngle =
+            source.InnerConeAngle;
+
+        component.OuterConeAngle =
+            source.OuterConeAngle;
+    }
+
+    auto& environment =
+        m_Scene->GetEnvironment();
+
+    const auto& lighting =
+        pbrEnabled ? m_PBRLighting : m_Lighting;
+
+    environment.ClearColor = {
+        0.035f,
+        0.045f,
+        0.065f,
+        1.0f
+    };
+
+    environment.AmbientColor =
+        lighting.Ambient.Color;
+
+    environment.AmbientIntensity =
+        lighting.Ambient.Intensity;
+
+    environment.EnvironmentMap =
+        m_EnvironmentMap;
+
+    environment.IrradianceMap =
+        m_IrradianceMap;
+
+    environment.ShowBackground =
+        m_ShowEnvironment;
+
+    environment.EnvironmentLightingEnabled =
+        m_EnvironmentLighting;
+
+    environment.EnvironmentIntensity =
+        m_EnvironmentIntensity;
+
+    environment.BackgroundIntensity =
+        m_BackgroundIntensity;
+
+    environment.RotationRadians =
+        glm::radians(m_EnvironmentRotation);
+
+    environment.Exposure =
+        m_PBRExposure;
+}
+
 void Sandbox3D::CreateEnvironment(
     const std::filesystem::path& sandboxAssetsRoot)
 {
@@ -930,16 +1382,11 @@ void Sandbox3D::CreateEnvironment(
             16,
             true);
 
+    // 使用覆盖整个屏幕的单个三角形，避免全屏四边形对角线接缝。
     float vertices[] = {
         -1.0f, -1.0f,
-         1.0f, -1.0f,
-         1.0f,  1.0f,
-        -1.0f,  1.0f
-    };
-
-    uint32_t indices[] = {
-        0, 1, 2,
-        2, 3, 0
+         3.0f, -1.0f,
+        -1.0f,  3.0f
     };
 
     auto buffer =
@@ -958,11 +1405,6 @@ void Sandbox3D::CreateEnvironment(
         Hazel::VertexArray::Create();
 
     m_EnvironmentQuad->AddVertexBuffer(buffer);
-
-    m_EnvironmentQuad->SetIndexBuffer(
-        Hazel::IndexBuffer::Create(
-            indices,
-            6));
 }
 
 void Sandbox3D::ResetTestCamera()
@@ -1010,42 +1452,46 @@ void Sandbox3D::OnUpdate(
 
     m_CameraController.OnUpdate(timestep);
 
+    SyncRenderScene();
+
     Hazel::RenderCommand::SetViewport(
         0, 0, width, height);
 
-    // 当前测试层统一设置不透明物体的绘制状态。
-    // 后续抽取 Renderer3D 时，再由渲染状态接口管理。
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LESS);
-
-    glDisable(GL_BLEND);
-    glDisable(GL_CULL_FACE);
-
-    // 当前 PBR.glsl 已手动执行最终显示编码。
+    // 当前 PBR Shader 在片元阶段执行显示编码。
     glDisable(GL_FRAMEBUFFER_SRGB);
 
-    Hazel::RenderCommand::SetClearColor({
-        0.035f,
-        0.045f,
-        0.065f,
-        1.0f
-    });
+    Hazel::RenderCommand::SetClearColor(
+        m_Scene->GetEnvironment().ClearColor);
 
     Hazel::RenderCommand::Clear();
 
-    if (m_ShowPBRTest)
-    {
-        RenderPBRTest();
-    }
-    else
-    {
-        if (m_ShowEnvironment)
-            RenderEnvironment();
+    if (m_Scene->GetEnvironment().ShowBackground)
+        RenderEnvironment();
 
-        if (m_Model && m_ModelMaterial)
-            RenderModel();
-    }
+    m_TransformSystem.Update(
+        *m_Scene);
+
+    Hazel::SceneRenderExtractor::Extract(
+        *m_Scene,
+        m_TransformSystem,
+        m_RenderSceneData);
+
+    const Hazel::RenderView view =
+        Hazel::RenderView::FromCamera(
+            m_CameraController.GetCamera(),
+            width,
+            height);
+
+    Hazel::Renderer3DSettings settings;
+    settings.ClearTarget = false;
+    settings.Exposure = m_PBRExposure;
+    settings.ReflectionStrength =
+        m_ReflectionStrength;
+
+    Hazel::Renderer3D::Render(
+        m_RenderSceneData,
+        view,
+        settings);
 }
 
 void Sandbox3D::RenderPBRTest()
@@ -1135,19 +1581,44 @@ void Sandbox3D::RenderEnvironment()
         "u_EnvironmentMap",
         0);
 
-    // OnUpdate 已设置不透明绘制状态。
-    // 背景暂时关闭深度测试和深度写入。
+    // 背景是全屏四边形，不应继承网格的深度、混合和剔除状态。
+    const GLboolean depthTest =
+        glIsEnabled(GL_DEPTH_TEST);
+
+    const GLboolean blend =
+        glIsEnabled(GL_BLEND);
+
+    const GLboolean cull =
+        glIsEnabled(GL_CULL_FACE);
+
+    GLboolean depthWrite = GL_TRUE;
+    glGetBooleanv(
+        GL_DEPTH_WRITEMASK,
+        &depthWrite);
+
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
+    glDisable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
 
     m_EnvironmentQuad->Bind();
 
-    Hazel::RenderCommand::DrawIndexed(
-        m_EnvironmentQuad,
-        6);
+    // 单个全屏三角形覆盖整个目标，不依赖索引缓冲。
+    glDrawArrays(
+        GL_TRIANGLES,
+        0,
+        3);
 
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
+    glDepthMask(depthWrite);
+
+    if (depthTest)
+        glEnable(GL_DEPTH_TEST);
+
+    if (blend)
+        glEnable(GL_BLEND);
+
+    if (cull)
+        glEnable(GL_CULL_FACE);
 }
 
 void Sandbox3D::RenderModel()
@@ -1456,6 +1927,20 @@ void Sandbox3D::OnEvent(Hazel::Event& event)
 
 void Sandbox3D::OnDetach()
 {
+    m_PBRSceneEntities.clear();
+    m_PBRScenePointLights.clear();
+
+    m_PBRSceneDirectionalLight = {};
+    m_PBRSceneSpotLight = {};
+    m_ModelSceneEntity = {};
+    m_ModelSceneDirectionalLight = {};
+    m_ModelScenePointLight = {};
+    m_ModelSceneSpotLight = {};
+
+    m_TransformSystem.Clear();
+    m_RenderSceneData.Clear();
+    m_Scene.reset();
+
     m_PBRObjects.clear();
     m_PBRSphere.reset();
     m_PBRShader.reset();

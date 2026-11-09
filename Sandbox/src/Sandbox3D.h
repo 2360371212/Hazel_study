@@ -13,6 +13,14 @@
 #include "Hazel/Renderer/Lighting/SceneLighting.h"
 #include "Hazel/Renderer/Lighting/LightingUploader.h"
 
+#include "Hazel/Scene/Scene.h"
+#include "Hazel/Scene/Entity.h"
+#include "Hazel/Scene/Components/TransformComponent.h"
+#include "Hazel/Scene/Components/MeshRendererComponent.h"
+#include "Hazel/Scene/Components/LightComponents.h"
+#include "Hazel/Scene/Systems/TransformSystem.h"
+#include "Hazel/Renderer/Scene/RenderSceneData.h"
+
 class Sandbox3D : public Hazel::Layer
 {
 public:
@@ -48,6 +56,9 @@ private:
     void RenderModel();
     void RenderEnvironment();
 
+    void BuildRenderScene();
+    void SyncRenderScene();
+
     // 在 OnImGuiRender 创建的窗口内绘制控件。
     void OnPBRImGuiRender();
     void OnModelImGuiRender();
@@ -56,6 +67,20 @@ private:
 
 private:
     Hazel::FlyCameraController m_CameraController;
+
+    Hazel::Scope<Hazel::Scene> m_Scene;
+    Hazel::TransformSystem m_TransformSystem;
+    Hazel::RenderSceneData m_RenderSceneData;
+
+    std::vector<Hazel::Entity> m_PBRSceneEntities;
+    Hazel::Entity m_PBRSceneDirectionalLight;
+    std::vector<Hazel::Entity> m_PBRScenePointLights;
+    Hazel::Entity m_PBRSceneSpotLight;
+
+    Hazel::Entity m_ModelSceneEntity;
+    Hazel::Entity m_ModelSceneDirectionalLight;
+    Hazel::Entity m_ModelScenePointLight;
+    Hazel::Entity m_ModelSceneSpotLight;
 
     Hazel::Scope<Hazel::MaterialSystem> m_MaterialSystem;
 
