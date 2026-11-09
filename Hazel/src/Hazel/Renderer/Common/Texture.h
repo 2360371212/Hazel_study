@@ -9,7 +9,7 @@ namespace Hazel{
 
     enum class TextureFormat
     {
-        RGB8, RGBA8, SRGBA8, RG16F, RGB16F, RGBA16F
+        RGB8, RGBA8, SRGBA8, RG16F, RGB16F, RGBA16F, Depth24Stencil8, Depth32F
     };
 
     enum class TextureWrap

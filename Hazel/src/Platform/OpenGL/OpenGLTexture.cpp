@@ -2,7 +2,7 @@
 #include "OpenGLTexture.h"
 #include "stb_image.h"
 #include <glad/glad.h>
-
+#include "Hazel/Core/Log.h"
 #include <algorithm>
 #include <memory>
 #include <stdexcept>
@@ -35,8 +35,13 @@ namespace Hazel{
                     return {GL_RGB16F, GL_RGB, GL_FLOAT, 3 * sizeof(float)};
                 case TextureFormat::RGBA16F:
                     return {GL_RGBA16F, GL_RGBA, GL_FLOAT, 4 * sizeof(float)};
+                case TextureFormat::Depth24Stencil8:
+                    return {GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 4};
+                case TextureFormat::Depth32F:
+                    return {GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT, sizeof(float)};
             }
-            throw std::invalid_argument("Unsupported texture format");
+            
+            HZ_CORE_ASSERT(false, "Unsupported texture format");
         }
 
         GLenum GetWrapMode(TextureWrap wrap)
@@ -48,7 +53,7 @@ namespace Hazel{
                 case TextureWrap::ClampToEdge:
                     return GL_CLAMP_TO_EDGE;
             }
-            throw std::invalid_argument("Unsupported texture wrap mode");
+            HZ_CORE_ASSERT(false, "Unsupported texture wrap mode")
         }
 
         uint32_t CalculateFullMipCount(uint32_t width, uint32_t height)
@@ -122,7 +127,7 @@ namespace Hazel{
         {
             if (!data || size != expectedSize)
             {
-                throw std::invalid_argument("Texture upload requires complete, tightly packed data");
+                HZ_CORE_ASSERT(false, "Texture upload requires complete, tightly packed data")
             }
         }
 
@@ -209,13 +214,12 @@ namespace Hazel{
 
         if (!pixels)
         {
-            throw std::runtime_error("Failed to load texture: " + path);
+            HZ_CORE_ASSERT(false, "Failed to load texture: " + path)
         }
 
         m_Specification.Width = static_cast<uint32_t>(width);
         m_Specification.Height = static_cast<uint32_t>(height);
-        m_Specification.Format = isHDR ? TextureFormat::RGBA16F :
-            (options.SRGB ? TextureFormat::SRGBA8 : TextureFormat::RGBA8);
+        m_Specification.Format = isHDR ? TextureFormat::RGBA16F : (options.SRGB ? TextureFormat::SRGBA8 : TextureFormat::RGBA8);
         m_Specification.Wrap = options.Wrap;
         m_Specification.MipLevels = options.MipLevels;
 
@@ -229,8 +233,7 @@ namespace Hazel{
     void OpenGLTexture2D::SetData(const void* data, std::size_t size)
     {
         const auto format = GetFormatInfo(GetFormat());
-        const std::size_t expectedSize =
-            static_cast<std::size_t>(GetWidth()) * GetHeight() * format.UploadBytesPerPixel;
+        const std::size_t expectedSize = static_cast<std::size_t>(GetWidth()) * GetHeight() * format.UploadBytesPerPixel;
         ValidateUpload(data, size, expectedSize);
 
         ScopedUnpackAlignment alignment;
